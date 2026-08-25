@@ -1,0 +1,15 @@
+{
+  "name": "Rando Radar",
+  "short_name": "RandoRadar",
+  "description": "Carte topo, GPS, suivi d’activité, GPX, radar pluie et météo du parcours.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7f6",
+  "theme_color": "#f7faf9",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -1,1 +1,1528 @@
+:root{
+  --bg:#f4f7f6;
+  --surface:#ffffff;
+  --surface-2:#eef4f1;
+  --surface-3:#e8eef2;
+  --text:#142033;
+  --muted:#687788;
+  --line:#dfe7e3;
+  --green:#0f8a67;
+  --green-soft:#e6f5ef;
+  --blue:#2468e8;
+  --blue-soft:#eaf1ff;
+  --purple:#7b3fd0;
+  --purple-soft:#f3ebff;
+  --amber:#b97700;
+  --amber-soft:#fff4dc;
+  --danger:#c94a63;
+  --danger-soft:#fff0f3;
+  --shadow:0 12px 34px rgba(20,32,51,.10);
+  --shadow-soft:0 6px 18px rgba(20,32,51,.08);
+  --radius:22px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;background:var(--bg)}
+html,body{margin:0;min-height:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:var(--bg)}
+body{padding-bottom:calc(86px + env(safe-area-inset-bottom));-webkit-tap-highlight-color:transparent}
+button,input{font:inherit}
+button,label{touch-action:manipulation}
+button{color:inherit}
+button:focus-visible,label:focus-visible,input:focus-visible{outline:3px solid rgba(36,104,232,.23);outline-offset:2px}
+.hidden{display:none!important}
 
+.topbar{
+  min-height:82px;
+  padding:calc(12px + env(safe-area-inset-top)) 16px 12px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:rgba(255,255,255,.92);backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(223,231,227,.8);
+  position:sticky;top:0;z-index:1100;
+}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.brand-mark{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(145deg,#22a680,#0d6f78);color:white;font-size:24px;transform:rotate(0deg);box-shadow:0 8px 20px rgba(15,138,103,.22)}
+.eyebrow{font-size:9px;font-weight:850;color:var(--green);letter-spacing:1.5px;margin-bottom:1px}
+.topbar h1{margin:0;font-size:23px;letter-spacing:-.6px;white-space:nowrap}
+.top-actions{display:flex;align-items:center;gap:8px}
+.weather-chip{height:44px;display:flex;align-items:center;gap:5px;padding:0 12px;border-radius:16px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow-soft)}
+.weather-chip .weather-icon{font-size:20px;line-height:1}
+.weather-chip strong{font-size:18px;letter-spacing:-.3px}
+.icon-btn{width:44px;height:44px;border-radius:15px;border:1px solid var(--line);background:#fff;box-shadow:var(--shadow-soft);font-size:22px;font-weight:800}
+.locate-top{color:var(--green)}
+
+main{width:100%}
+.map-wrap{
+  position:relative;
+  height:min(54vh,620px);
+  min-height:390px;
+  margin:14px 14px 0;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:26px;
+  box-shadow:var(--shadow);
+  background:#dfe8e3;
+}
+#map{width:100%;height:100%;background:#dfe8e3}
+.leaflet-control-attribution{font-size:8px!important;background:rgba(255,255,255,.82)!important}
+.leaflet-control-zoom{display:none}
+
+.map-pills{position:absolute;top:12px;left:12px;right:12px;z-index:500;display:flex;gap:7px;pointer-events:none;overflow-x:auto;scrollbar-width:none;padding-right:48px}
+.map-pills::-webkit-scrollbar{display:none}
+.pill{pointer-events:auto;white-space:nowrap;border:1px solid rgba(255,255,255,.85);border-radius:999px;background:rgba(255,255,255,.90);backdrop-filter:blur(12px);padding:8px 12px;font-size:11px;font-weight:800;color:#314154;box-shadow:0 5px 15px rgba(20,32,51,.13)}
+.pill.active{background:#e9f7f2;border-color:#a9d9c8;color:#087452}
+.gps-badge{position:absolute;top:55px;left:12px;z-index:500;background:rgba(255,255,255,.9);backdrop-filter:blur(12px);padding:7px 10px;border-radius:12px;font-size:10px;font-weight:750;color:#536273;border:1px solid rgba(255,255,255,.86);box-shadow:0 5px 15px rgba(20,32,51,.12)}
+.map-expand-hint{position:absolute;z-index:490;right:12px;bottom:91px;background:rgba(255,255,255,.92);color:#28394a;border:1px solid rgba(255,255,255,.92);border-radius:14px;padding:8px 10px;font-size:10px;font-weight:800;pointer-events:none;backdrop-filter:blur(10px);box-shadow:var(--shadow-soft)}
+.radar-panel{position:absolute;left:12px;right:12px;bottom:12px;z-index:500;background:rgba(255,255,255,.93);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.95);border-radius:18px;padding:10px 12px;box-shadow:0 8px 24px rgba(20,32,51,.14)}
+.radar-row{display:grid;grid-template-columns:38px minmax(0,1fr) 62px;gap:9px;align-items:center}
+.radar-play{width:38px;height:38px;border:0;border-radius:13px;background:var(--blue);color:#fff;font-weight:800;box-shadow:0 7px 14px rgba(36,104,232,.20)}
+.radar-time{font-size:11px;font-weight:850;text-align:right;color:#26384a}
+.radar-sub{color:var(--muted);font-size:9px;margin-top:3px;padding-left:47px}
+input[type="range"]{width:100%;accent-color:var(--blue)}
+
+.dashboard{max-width:900px;margin:0 auto;padding:14px;display:grid;gap:14px}
+.quick-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.quick-button{min-width:0;min-height:112px;border:1px solid var(--line);border-radius:22px;background:#fff;box-shadow:var(--shadow-soft);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;text-align:center;padding:12px 9px;font-size:12px;font-weight:850;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+.quick-button:active{transform:scale(.975);box-shadow:0 3px 10px rgba(20,32,51,.09)}
+.quick-button:disabled{opacity:.42;cursor:not-allowed}
+.quick-icon{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;font-size:21px;font-weight:900}
+.quick-gpx{color:#067451}.quick-gpx .quick-icon{background:var(--green-soft);color:var(--green);font-size:13px}
+.quick-route{color:#087b70}.quick-route .quick-icon{background:#e8f6f3;color:#0b8c7b}
+.quick-activity{color:#1c58c8}.quick-activity .quick-icon{background:var(--blue-soft);color:var(--blue)}
+.quick-weather{color:#6a2fb6}.quick-weather .quick-icon{background:var(--purple-soft);color:var(--purple)}
+
+.alert-card{display:flex;gap:12px;align-items:flex-start;padding:14px 15px;border-radius:20px;border:1px solid var(--line);box-shadow:var(--shadow-soft);background:#fff}
+.alert-card.neutral{background:#fff}
+.alert-card.safe{background:#edf9f4;border-color:#c8eadc}
+.alert-card.warn{background:#fff8e9;border-color:#f2dba8}
+.alert-card.danger{background:#fff0f3;border-color:#f2c3cd}
+.alert-icon{font-size:25px;line-height:1}
+.alert-card strong{font-size:14px}
+.alert-card p{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.4}
+
+.overview-grid{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:10px}
+.overview-card,.route-card,.forecast-card,.info-card{background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow-soft)}
+.overview-card{padding:15px;min-width:0}
+.overview-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:16px;font-weight:850;margin-bottom:10px}
+.overview-badge{width:36px;height:36px;border-radius:13px;background:var(--surface-2);display:grid;place-items:center}
+.metric-line{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #edf1ef;font-size:11px;color:var(--muted)}
+.metric-line:first-of-type{border-top:0}
+.metric-line strong{font-size:13px;color:var(--text);white-space:nowrap}
+.overview-copy{margin:0 0 12px;color:var(--muted);font-size:11px;line-height:1.45}
+.mini-action{width:100%;min-height:40px;border:0;border-radius:13px;background:var(--surface-2);color:var(--green);font-size:11px;font-weight:850}
+
+.route-card,.forecast-card,.info-card{padding:16px}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.section-head h2{margin:2px 0 0;font-size:18px;letter-spacing:-.3px}
+.label{display:block;font-size:9px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.75px}
+.text-btn{border:0;background:#eef4f8;color:#2967ab;border-radius:11px;font-size:11px;font-weight:800;padding:9px 11px}
+.section-actions{display:flex;gap:6px}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stats-grid>div,.activity-detail-stats>div{background:#f5f8f7;border:1px solid #edf1ef;border-radius:15px;padding:11px;min-width:0}
+.stats-grid strong,.activity-detail-stats strong{display:block;margin-top:4px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mode-row{margin-top:14px}
+.segmented{margin-top:7px;display:grid;grid-template-columns:1fr 1fr;gap:5px;background:#f0f4f2;padding:5px;border-radius:14px}
+.mode-btn{border:0;border-radius:10px;padding:10px 7px;font-size:11px;background:transparent;color:var(--muted);font-weight:800}
+.mode-btn.active{background:#fff;color:var(--text);box-shadow:0 3px 10px rgba(20,32,51,.08)}
+.route-forecast{margin-top:13px;display:grid;gap:7px}
+.route-step{display:grid;grid-template-columns:48px 1fr auto;gap:9px;align-items:center;padding:10px;background:#f5f8f7;border-radius:14px}
+.route-step .km{font-weight:850;font-size:12px}.route-step .desc{font-size:12px}.route-step .meta{color:var(--muted);font-size:10px;margin-top:2px}.route-step .risk{font-size:12px;font-weight:850}
+
+.activity-main-actions{display:flex;gap:8px;margin-top:12px}
+.activity-main-actions button{min-height:48px;border-radius:14px;border:1px solid var(--line);font-weight:850;padding:0 14px}
+.activity-start{flex:1;background:linear-gradient(135deg,#1f73ed,#205dd7);border-color:#2261d8!important;color:#fff;box-shadow:0 8px 18px rgba(36,104,232,.22)}
+.activity-secondary{background:#f0f4f2;color:#274052}
+.activity-detail-stats{margin-top:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.activity-help{color:var(--muted);font-size:10px;line-height:1.45;margin:10px 0 0}
+
+.hourly-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.hourly-scroll::-webkit-scrollbar{display:none}
+.hour-card{min-width:78px;background:#f5f8f7;border:1px solid #edf1ef;border-radius:16px;padding:11px 8px;text-align:center}
+.hour-card .time{font-size:10px;color:var(--muted)}.hour-card .ico{font-size:22px;margin:5px 0}.hour-card .temp{font-size:16px;font-weight:850}.hour-card .rain{font-size:10px;color:#3476c5;margin-top:4px}
+.skeleton{color:var(--muted);font-size:11px;padding:8px 0}
+.info-card p{color:var(--muted);font-size:10px;line-height:1.5}.info-card .tiny{font-size:9px;opacity:.92}
+.saved-routes-list{display:grid;gap:8px}
+.saved-route-item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:#f5f8f7;border:1px solid #edf1ef;border-radius:15px;padding:11px}
+.saved-route-item .saved-meta{color:var(--muted);font-size:9px;margin-top:3px}.saved-route-actions{display:flex;gap:5px}.saved-route-actions button{border:1px solid var(--line);background:#fff;border-radius:10px;min-width:40px;height:38px;font-size:11px}.saved-route-actions .delete{color:var(--danger)}
+
+.bottom-nav{position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:2200;max-width:760px;margin:0 auto;padding:7px;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;background:rgba(255,255,255,.94);border:1px solid rgba(223,231,227,.95);border-radius:22px;box-shadow:0 14px 40px rgba(20,32,51,.16);backdrop-filter:blur(16px)}
+.bottom-nav-btn{min-width:0;min-height:52px;border:0;border-radius:15px;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#566577}
+.bottom-nav-btn span{font-size:20px;line-height:1}.bottom-nav-btn small{font-size:9px;font-weight:800;white-space:nowrap}.bottom-nav-btn.active{background:var(--green-soft);color:var(--green)}
+
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(18px);z-index:10000;background:#152234;color:white;border-radius:14px;padding:11px 14px;font-size:11px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.2s ease;max-width:90vw;text-align:center}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.user-dot{width:18px;height:18px;background:#2468e8;border:3px solid white;border-radius:50%;box-shadow:0 0 0 7px rgba(36,104,232,.18)}
+.route-marker{width:10px;height:10px;background:#2468e8;border:2px solid white;border-radius:50%}
+
+/* Carte plein écran */
+body.map-fullscreen{overflow:hidden;padding-bottom:0}
+.map-float-btn{position:absolute;z-index:900;border:1px solid rgba(255,255,255,.9);background:rgba(255,255,255,.95);backdrop-filter:blur(14px);box-shadow:0 8px 22px rgba(20,32,51,.17);height:48px;color:#17283a}
+.map-close-btn{top:calc(12px + env(safe-area-inset-top));right:12px;border-radius:50%;width:48px;padding:0;font-size:20px;font-weight:900;display:grid;place-items:center}
+.map-close-btn span{display:none}
+.map-locate-btn{top:calc(72px + env(safe-area-inset-top));right:12px;width:48px;border-radius:50%;font-size:24px;color:var(--blue)}
+.map-wrap.fullscreen .map-close-btn,.map-wrap.fullscreen .map-locate-btn{position:fixed;z-index:10050;pointer-events:auto}
+.map-zoom-controls{position:fixed;right:12px;top:50%;transform:translateY(-50%);z-index:10050;display:grid;gap:8px}
+.map-zoom-controls button{width:50px;height:50px;border:1px solid rgba(255,255,255,.9);border-radius:50%;background:rgba(255,255,255,.96);color:#17283a;font-size:28px;font-weight:700;box-shadow:0 8px 20px rgba(20,32,51,.17)}
+.map-wrap.fullscreen{position:fixed;inset:0;width:100%;height:100dvh;min-height:0;max-height:none;margin:0;z-index:9000;border:0;border-radius:0;box-shadow:none}
+.map-wrap.fullscreen .map-pills{top:calc(12px + env(safe-area-inset-top));left:12px;right:76px;padding-right:0}
+.map-wrap.fullscreen .gps-badge{top:calc(57px + env(safe-area-inset-top));left:12px}
+.map-wrap.fullscreen .map-expand-hint{display:none}
+.map-wrap.fullscreen .radar-panel{bottom:calc(14px + env(safe-area-inset-bottom));left:12px;right:12px}
+.map-wrap.fullscreen.planning .map-pills,.map-wrap.fullscreen.activity-active .map-pills{right:76px}
+
+/* Planificateur */
+.map-wrap.planning .radar-panel{display:none}
+.planner-panel{position:absolute;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:850;background:rgba(255,255,255,.96);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.95);border-radius:20px;padding:12px;box-shadow:0 12px 30px rgba(20,32,51,.18)}
+.planner-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.planner-head strong,.planner-head small{display:block}.planner-head strong{font-size:14px}.planner-head small{margin-top:2px;color:var(--muted);font-size:9px;line-height:1.3}
+.planner-mode{display:flex;gap:4px;background:#edf2f0;border-radius:12px;padding:4px}.planner-mode-btn{width:42px;height:38px;border:0;border-radius:9px;background:transparent;opacity:.58}.planner-mode-btn.active{background:#fff;opacity:1;box-shadow:0 3px 9px rgba(20,32,51,.08)}
+.planner-actions{display:grid;grid-template-columns:1.15fr 1fr 1fr 1.25fr;gap:6px;margin-top:10px}.planner-actions button{min-height:42px;border:1px solid var(--line);border-radius:11px;background:#f2f6f4;font-size:10px;font-weight:850;padding:6px}.planner-actions button:disabled{opacity:.38}.planner-actions .planner-primary{background:var(--green);border-color:var(--green);color:#fff}.planner-note{margin-top:7px;color:#778597;font-size:8px;line-height:1.35}
+.plan-waypoint{width:25px;height:25px;display:grid;place-items:center;border-radius:50%;background:#f2ad2f;border:3px solid white;color:#17202a;font-size:9px;font-weight:900;box-shadow:0 4px 12px rgba(20,32,51,.25)}.plan-waypoint.start{background:#35b986}.plan-waypoint.end{background:#eb6680}
+
+/* Suivi activité sur la carte */
+.activity-map-panel{position:absolute;z-index:880;left:10px;right:10px;top:calc(112px + env(safe-area-inset-top));background:rgba(255,255,255,.96);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.96);border-radius:20px;padding:11px;box-shadow:0 12px 30px rgba(20,32,51,.18)}
+.activity-map-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.activity-map-head strong,.activity-map-head small{display:block}.activity-map-head strong{font-size:13px}.activity-map-head small{color:var(--green);font-size:8px;margin-top:1px;font-weight:850;letter-spacing:.45px}.activity-map-actions{display:flex;gap:5px}.activity-map-actions button{width:40px;height:36px;border-radius:11px;border:1px solid var(--line);background:#f2f6f4;font-size:14px}.activity-map-actions button:last-child{color:var(--danger)}
+.activity-live-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}.activity-live-stats>div{background:#f4f7f6;border-radius:12px;padding:8px;min-width:0}.activity-live-stats span{display:block;color:var(--muted);font-size:8px;text-transform:uppercase;letter-spacing:.5px}.activity-live-stats strong{display:block;font-size:13px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.activity-map-bottom{display:flex;gap:7px;margin-top:8px;align-items:stretch}.target-btn{flex:0 0 auto;min-height:43px;border:1px solid var(--line);border-radius:12px;background:#eef4f1;padding:0 11px;font-size:10px;font-weight:850;color:#185e50}.target-btn.selecting{background:var(--amber-soft);border-color:#efcf8a;color:#8d5a00}.target-guide{min-width:0;flex:1;display:grid;grid-template-columns:34px 1fr auto 30px;gap:6px;align-items:center;background:#fff9ec;border:1px solid #f0d693;border-radius:12px;padding:5px 6px}.target-arrow{display:grid;place-items:center;width:32px;height:32px;font-size:24px;color:#b97700;transform-origin:center;transition:transform .25s ease}.target-guide strong,.target-guide small{display:block}.target-guide>div:nth-child(2) strong{font-size:13px}.target-guide small{color:var(--muted);font-size:8px;margin-top:1px;line-height:1.15}.target-eta{text-align:right;white-space:nowrap}.target-eta span{display:block;color:var(--muted);font-size:8px}.target-eta strong{font-size:11px;margin-top:2px}.target-guide>button{width:28px;height:30px;border:0;border-radius:8px;background:#fff0d5;color:var(--danger)}.target-marker{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:#fff;border:2px solid #d99610;font-size:17px;box-shadow:0 5px 14px rgba(20,32,51,.25)}
+
+@media(max-width:760px){
+  .overview-grid{grid-template-columns:1fr 1fr}.weather-overview{grid-row:span 2}
+  .quick-button{min-height:102px}
+}
+@media(max-width:520px){
+  body{padding-bottom:calc(82px + env(safe-area-inset-bottom))}
+  .topbar{min-height:74px;padding-left:12px;padding-right:12px}.brand-mark{width:38px;height:38px;border-radius:13px}.topbar h1{font-size:20px}.eyebrow{font-size:8px}.weather-chip{height:40px;padding:0 10px}.weather-chip strong{font-size:16px}.weather-chip .weather-icon{font-size:18px}.locate-top{display:none}
+  .map-wrap{height:48vh;min-height:365px;margin:10px 10px 0;border-radius:22px}
+  .dashboard{padding:10px;gap:10px}
+  .quick-actions{grid-template-columns:repeat(2,1fr);gap:8px}.quick-button{min-height:92px;border-radius:18px;gap:7px}.quick-icon{width:42px;height:42px;border-radius:14px;font-size:19px}.quick-gpx .quick-icon{font-size:11px}
+  .overview-grid{grid-template-columns:1fr 1fr;gap:8px}.overview-card{padding:13px}.overview-head{font-size:14px}.weather-overview{grid-row:auto;grid-column:1/-1}.metric-line{padding:6px 0}
+  .stats-grid{grid-template-columns:1fr 1fr}.activity-detail-stats{grid-template-columns:1fr 1fr}
+  .bottom-nav{left:8px;right:8px;bottom:calc(7px + env(safe-area-inset-bottom));border-radius:19px;padding:5px}.bottom-nav-btn{min-height:50px;border-radius:13px}.bottom-nav-btn span{font-size:18px}.bottom-nav-btn small{font-size:8px}
+  .planner-actions{grid-template-columns:1fr 1fr}
+  .activity-map-panel{left:8px;right:8px;top:calc(108px + env(safe-area-inset-top))}
+  .target-guide{grid-template-columns:32px minmax(0,1fr) auto 28px}.target-btn{padding:0 8px}
+  .map-wrap.fullscreen .radar-panel{bottom:calc(10px + env(safe-area-inset-bottom))}
+}
+@media(max-width:360px){
+  .topbar h1{font-size:18px}.weather-chip{padding:0 8px}.brand{gap:8px}
+  .map-wrap{min-height:340px}
+  .quick-button{font-size:11px}
+  .activity-map-panel{left:6px;right:6px;padding:9px}.activity-live-stats strong{font-size:11px}.target-btn{font-size:0;width:43px;padding:0}.target-btn::first-letter{font-size:16px}
+}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+/* =========================================================
+   V1.4.1 — Responsive smartphone renforcé
+   Objectif : aucune interface "desktop réduite" sur téléphone.
+   Lisible sans zoom manuel, quelle que soit la largeur logique.
+   ========================================================= */
+html, body, #app, main {
+  width: 100%;
+  max-width: 100%;
+}
+html, body {
+  overflow-x: hidden;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (max-width: 900px) {
+  :root {
+    --radius: 20px;
+  }
+
+  body {
+    font-size: 16px;
+    padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+
+  #app, main {
+    display: block;
+    overflow-x: clip;
+  }
+
+  .topbar {
+    width: 100%;
+    min-height: 72px;
+    padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+    gap: 10px;
+  }
+  .brand { gap: 10px; }
+  .brand-mark {
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    font-size: 22px;
+    flex: 0 0 40px;
+  }
+  .eyebrow { font-size: 9px; letter-spacing: 1.25px; }
+  .topbar h1 { font-size: clamp(19px, 3.5vw, 24px); }
+  .weather-chip {
+    height: 42px;
+    padding: 0 11px;
+    border-radius: 14px;
+    flex: 0 0 auto;
+  }
+  .weather-chip .weather-icon { font-size: 19px; }
+  .weather-chip strong { font-size: clamp(16px, 2.8vw, 19px); }
+  .locate-top { display: none; }
+
+  /* La carte occupe réellement toute la largeur du smartphone. */
+  .map-wrap {
+    display: block;
+    width: calc(100vw - 20px) !important;
+    width: calc(100dvw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    max-width: calc(100dvw - 20px) !important;
+    height: clamp(360px, 42dvh, 560px);
+    min-height: 360px;
+    margin: 10px 10px 0 !important;
+    border-radius: 22px;
+    align-self: stretch;
+  }
+  #map {
+    display: block;
+    width: 100% !important;
+    min-width: 100% !important;
+    height: 100% !important;
+  }
+  .map-pills { gap: 7px; padding-right: 42px; }
+  .pill {
+    padding: 8px 11px;
+    font-size: clamp(11px, 1.9vw, 13px);
+  }
+  .gps-badge { font-size: clamp(10px, 1.8vw, 12px); }
+  .map-expand-hint {
+    font-size: clamp(11px, 1.9vw, 13px);
+    padding: 9px 11px;
+  }
+  .radar-panel { padding: 10px 11px; }
+  .radar-time { font-size: clamp(11px, 2vw, 13px); }
+  .radar-sub { font-size: clamp(9px, 1.7vw, 11px); }
+
+  .dashboard {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .quick-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .quick-button {
+    min-height: 76px;
+    border-radius: 18px;
+    padding: 10px 12px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 10px;
+    text-align: left;
+    font-size: clamp(13px, 2.3vw, 16px);
+    line-height: 1.15;
+  }
+  .quick-icon {
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    border-radius: 14px;
+    font-size: 19px;
+  }
+  .quick-gpx .quick-icon { font-size: 11px; }
+
+  .alert-card {
+    padding: 13px 14px;
+    border-radius: 18px;
+    gap: 11px;
+  }
+  .alert-icon { font-size: 24px; }
+  .alert-card strong { font-size: clamp(14px, 2.4vw, 17px); }
+  .alert-card p {
+    font-size: clamp(12px, 2vw, 14px);
+    line-height: 1.4;
+  }
+
+  .overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .weather-overview {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  .overview-card,
+  .route-card,
+  .forecast-card,
+  .info-card {
+    border-radius: 18px;
+  }
+  .overview-card { padding: 13px; }
+  .overview-head {
+    font-size: clamp(15px, 2.6vw, 18px);
+    margin-bottom: 9px;
+  }
+  .overview-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+  }
+  .metric-line {
+    padding: 8px 0;
+    font-size: clamp(12px, 2vw, 14px);
+  }
+  .metric-line strong { font-size: clamp(13px, 2.2vw, 15px); }
+  .overview-copy {
+    font-size: clamp(12px, 2vw, 14px);
+    line-height: 1.4;
+    min-height: 3.9em;
+  }
+  .mini-action {
+    min-height: 44px;
+    font-size: clamp(12px, 2.1vw, 14px);
+  }
+
+  .route-card, .forecast-card, .info-card { padding: 14px; }
+  .section-head h2 { font-size: clamp(17px, 3vw, 20px); }
+  .label { font-size: clamp(10px, 1.8vw, 12px); }
+  .text-btn {
+    min-height: 40px;
+    font-size: clamp(12px, 2vw, 14px);
+  }
+  .stats-grid,
+  .activity-detail-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .stats-grid strong,
+  .activity-detail-stats strong {
+    font-size: clamp(14px, 2.4vw, 17px);
+  }
+  .mode-btn { font-size: clamp(12px, 2vw, 14px); min-height: 42px; }
+  .activity-main-actions button { min-height: 50px; font-size: clamp(13px, 2.2vw, 15px); }
+  .activity-help { font-size: clamp(11px, 1.9vw, 13px); }
+
+  .hourly-scroll { gap: 8px; }
+  .hour-card {
+    min-width: 92px;
+    padding: 11px 9px;
+  }
+  .hour-card .time { font-size: 11px; }
+  .hour-card .ico { font-size: 22px; }
+  .hour-card strong { font-size: 15px; }
+  .hour-card .rain { font-size: 10px; }
+  .skeleton { font-size: 13px; }
+
+  .info-card strong { font-size: 15px; }
+  .info-card p { font-size: clamp(11px, 1.9vw, 13px); line-height: 1.45; }
+  .info-card .tiny, .tiny { font-size: clamp(10px, 1.7vw, 12px); }
+
+  .saved-route-item { padding: 12px; }
+  .saved-route-item .saved-meta { font-size: 11px; }
+  .saved-route-actions button { min-width: 44px; height: 42px; font-size: 13px; }
+
+  .bottom-nav {
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: none;
+    bottom: calc(7px + env(safe-area-inset-bottom));
+    padding: 5px;
+    border-radius: 19px;
+  }
+  .bottom-nav-btn {
+    min-height: 54px;
+    border-radius: 13px;
+    gap: 3px;
+  }
+  .bottom-nav-btn span { font-size: 20px; }
+  .bottom-nav-btn small {
+    font-size: clamp(9px, 1.7vw, 12px);
+    line-height: 1.05;
+  }
+
+  .toast {
+    font-size: 13px;
+    bottom: calc(90px + env(safe-area-inset-bottom));
+  }
+
+  /* Planification et activité : panneaux lisibles sans zoom. */
+  .planner-head strong { font-size: 15px; }
+  .planner-head small { font-size: 11px; }
+  .planner-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .planner-actions button { min-height: 44px; font-size: 12px; }
+  .planner-note { font-size: 10px; }
+
+  .activity-map-panel {
+    left: 8px;
+    right: 8px;
+    top: calc(104px + env(safe-area-inset-top));
+  }
+  .activity-map-head strong { font-size: 15px; }
+  .activity-map-head small { font-size: 10px; }
+  .activity-live-stats span { font-size: 10px; }
+  .activity-live-stats strong { font-size: clamp(13px, 2.3vw, 16px); }
+  .target-btn { font-size: 12px; }
+  .target-guide small, .target-eta span { font-size: 10px; }
+  .target-guide > div:nth-child(2) strong { font-size: 14px; }
+  .target-eta strong { font-size: 13px; }
+
+  .map-wrap.fullscreen {
+    width: 100vw !important;
+    width: 100dvw !important;
+    max-width: none !important;
+    height: 100dvh !important;
+    margin: 0 !important;
+    border-radius: 0;
+  }
+}
+
+@media (max-width: 430px) {
+  .topbar { padding-left: 10px; padding-right: 10px; }
+  .brand-mark { width: 38px; height: 38px; flex-basis: 38px; }
+  .topbar h1 { font-size: 19px; }
+  .weather-chip { height: 40px; padding: 0 9px; }
+
+  .map-wrap {
+    width: calc(100vw - 16px) !important;
+    width: calc(100dvw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    max-width: calc(100dvw - 16px) !important;
+    height: clamp(340px, 43dvh, 470px);
+    min-height: 340px;
+    margin: 8px 8px 0 !important;
+  }
+  .dashboard { padding: 8px; gap: 8px; }
+  .quick-actions { gap: 7px; }
+  .quick-button {
+    min-height: 70px;
+    padding: 8px 9px;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .quick-icon { width: 38px; height: 38px; min-width: 38px; border-radius: 12px; }
+
+  .overview-grid { grid-template-columns: 1fr; }
+  .weather-overview, .activity-preview, .route-preview { grid-column: 1; }
+  .overview-copy { min-height: 0; }
+
+  .bottom-nav-btn small { font-size: 9px; }
+  .bottom-nav-btn span { font-size: 19px; }
+}
+
+@media (max-width: 340px) {
+  .eyebrow { display: none; }
+  .topbar h1 { font-size: 17px; }
+  .weather-chip { padding: 0 7px; }
+  .quick-actions { grid-template-columns: 1fr; }
+  .quick-button { min-height: 60px; }
+}
+
+/* =========================================================
+   V1.4.2 — Correctif anti-décalage après chargement dynamique
+   Les listes horizontales (météo, parcours, etc.) restent confinées
+   dans leur carte et ne peuvent plus élargir la grille principale.
+   ========================================================= */
+
+/* Une grille CSS utilise par défaut une largeur minimale basée sur son contenu.
+   Une liste météo horizontale peut donc agrandir la colonne après son rendu.
+   minmax(0,1fr) supprime cette largeur minimale intrinsèque. */
+.dashboard {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dashboard > *,
+.quick-actions,
+.overview-grid,
+.overview-card,
+.route-card,
+.forecast-card,
+.info-card,
+.saved-routes-list,
+.route-forecast,
+.hourly-scroll,
+.section-head,
+.mode-row,
+.segmented,
+.activity-main-actions,
+.activity-detail-stats,
+.stats-grid {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Les contenus dynamiques défilent DANS leur composant, jamais sur la page. */
+.forecast-card,
+.route-card,
+.overview-card,
+.info-card {
+  overflow: hidden;
+}
+
+.hourly-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hour-card {
+  flex: 0 0 auto;
+}
+
+.route-forecast {
+  overflow-x: hidden;
+}
+
+.route-step {
+  min-width: 0;
+  max-width: 100%;
+}
+.route-step .desc,
+.route-step .meta,
+.saved-route-item > div:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.saved-route-item {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Aucun enfant injecté plus tard ne peut modifier la largeur de page. */
+#app,
+main,
+.dashboard {
+  overflow-x: clip;
+}
+
+@media (max-width: 900px) {
+  .dashboard {
+    grid-template-columns: minmax(0, 1fr) !important;
+    inline-size: 100%;
+    max-inline-size: 100%;
+  }
+
+  .quick-actions,
+  .overview-grid {
+    inline-size: 100%;
+    max-inline-size: 100%;
+  }
+
+  .quick-button {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .quick-button > span:last-child {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .metric-line {
+    min-width: 0;
+  }
+  .metric-line > span,
+  .metric-line > strong {
+    min-width: 0;
+  }
+  .metric-line > strong {
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+}
+
+
+/* =========================================================
+   V1.4.3 — Correctif robuste anti-décalage mobile
+   - suppression des largeurs basées sur vw/dvw qui peuvent bouger
+   - quick actions et cartes forcées à rester DANS l'écran
+   - aucun composant ne peut pousser la page vers la droite
+   ========================================================= */
+
+html, body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden !important;
+}
+
+#app, main {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden !important;
+}
+
+.map-wrap,
+.dashboard,
+.quick-actions,
+.overview-grid,
+.route-card,
+.forecast-card,
+.info-card,
+.overview-card,
+.alert-card,
+.saved-routes-list,
+#hourlyForecast {
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+/* Sur mobile, on évite les largeurs en vw/dvw qui changent quand
+   la barre système Android apparaît/disparaît. */
+@media (max-width: 900px) {
+  .map-wrap {
+    width: auto !important;
+    max-width: none !important;
+    inline-size: auto !important;
+    block-size: clamp(360px, 42dvh, 560px);
+    margin: 10px 10px 0 !important;
+  }
+
+  .dashboard {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    padding: 10px;
+  }
+
+  .dashboard > * + * {
+    margin-top: 10px;
+  }
+
+  /* Actions principales : 2 colonnes stables et compactes. */
+  .quick-actions {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .quick-actions > * {
+    flex: 1 1 calc(50% - 4px);
+    max-width: calc(50% - 4px);
+    min-width: 0;
+  }
+  .quick-button {
+    width: 100%;
+    min-height: 72px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  /* Cartes d'aperçu : météo plein écran, les deux autres sur 2 colonnes. */
+  .overview-grid {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .overview-grid > * {
+    min-width: 0;
+  }
+  .weather-overview {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+  .activity-preview,
+  .route-preview {
+    flex: 1 1 calc(50% - 4px);
+    max-width: calc(50% - 4px);
+  }
+
+  .section-head,
+  .metric-line,
+  .saved-route-item {
+    min-width: 0;
+  }
+
+  .section-head > *,
+  .metric-line > *,
+  .saved-route-item > * {
+    min-width: 0;
+  }
+
+  .metric-line strong,
+  .section-head h2,
+  .saved-route-item .saved-meta,
+  .overview-copy,
+  .quick-button > span:last-child {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
+
+@media (max-width: 430px) {
+  .map-wrap {
+    margin: 8px 8px 0 !important;
+    block-size: clamp(340px, 43dvh, 470px);
+  }
+
+  .dashboard {
+    padding: 8px;
+  }
+
+  .quick-actions > * {
+    flex-basis: calc(50% - 3.5px);
+    max-width: calc(50% - 3.5px);
+  }
+
+  .quick-button {
+    min-height: 68px;
+    font-size: 13px;
+  }
+
+  .activity-preview,
+  .route-preview {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 340px) {
+  .quick-actions > * {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+}
+
+/* V1.4.4 — retour visuel de l'actualisation météo */
+#refreshWeatherBtn:disabled {
+  opacity: .72;
+  cursor: wait;
+}
+
+
+/* =========================================================
+   V1.4.5 — Retour visuel de l'actualisation météo
+   ========================================================= */
+.weather-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.refresh-weather-icon {
+  display: inline-block;
+  font-size: 17px;
+  line-height: 1;
+  transform-origin: 50% 50%;
+}
+.weather-refresh-btn.refreshing .refresh-weather-icon {
+  animation: weather-refresh-spin .8s linear infinite;
+}
+.weather-refresh-btn.refreshing {
+  opacity: 1;
+  cursor: wait;
+}
+.weather-refresh-btn:disabled {
+  opacity: .82;
+}
+.weather-updated {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+@keyframes weather-refresh-spin {
+  to { transform: rotate(360deg); }
+}
+@media (max-width: 900px) {
+  .weather-refresh-btn {
+    min-width: 112px;
+  }
+  .weather-updated {
+    font-size: clamp(10px, 1.7vw, 12px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .weather-refresh-btn.refreshing .refresh-weather-icon {
+    animation-duration: 1.5s;
+  }
+}
+
+/* =========================================================
+   V1.5.0 — Suivi d'un parcours GPX
+   ========================================================= */
+.route-start-actions{
+  display:grid;
+  grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);
+  gap:8px;
+  margin-top:12px;
+}
+.route-start-btn,.route-show-btn{
+  min-width:0;
+  min-height:48px;
+  border-radius:14px;
+  font-weight:850;
+  padding:9px 12px;
+}
+.route-start-btn{
+  border:1px solid #1764dc;
+  background:linear-gradient(135deg,#2775ed,#1f5fd8);
+  color:#fff;
+  box-shadow:0 8px 18px rgba(36,104,232,.20);
+}
+.route-show-btn{
+  border:1px solid var(--line);
+  background:#eef4f1;
+  color:#185e50;
+}
+.route-start-help{
+  margin:8px 2px 0;
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.4;
+}
+.route-follow-guide{
+  display:grid;
+  grid-template-columns:minmax(0,1.6fr) repeat(3,minmax(0,.75fr));
+  gap:6px;
+  margin-top:8px;
+  padding:8px;
+  border-radius:13px;
+  background:#eaf4ff;
+  border:1px solid #c7ddfb;
+}
+.route-follow-guide>div{
+  min-width:0;
+  padding:5px 7px;
+  border-left:1px solid rgba(36,104,232,.12);
+}
+.route-follow-guide>div:first-child{border-left:0}
+.route-follow-guide span{
+  display:block;
+  color:#687788;
+  font-size:8px;
+  text-transform:uppercase;
+  letter-spacing:.45px;
+}
+.route-follow-guide strong{
+  display:block;
+  margin-top:2px;
+  font-size:11px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.route-follow-guide.off-route{
+  background:#fff3df;
+  border-color:#efc774;
+}
+.route-follow-guide.off-route #routeFollowDeviation{color:#a55b00}
+
+@media(max-width:520px){
+  .route-start-actions{grid-template-columns:1fr}
+  .route-follow-guide{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+  .route-follow-name{grid-column:1/-1}
+  .route-follow-guide>div{border-left:0;border-top:1px solid rgba(36,104,232,.10)}
+  .route-follow-guide>div:first-child{border-top:0}
+}
+
+/* =========================================================
+   V1.5.1 — Choix de fin d’activité
+   ========================================================= */
+body.activity-choice-open{overflow:hidden}
+.app-modal{position:fixed;inset:0;z-index:12000;display:grid;align-items:end;justify-items:stretch}
+.app-modal.hidden{display:none!important}
+.app-modal-backdrop{position:absolute;inset:0;background:rgba(10,18,30,.52);backdrop-filter:blur(2px)}
+.app-modal-sheet{position:relative;z-index:1;width:min(100% - 20px,520px);margin:0 auto calc(10px + env(safe-area-inset-bottom));padding:20px;border-radius:26px;background:#fff;box-shadow:0 24px 70px rgba(10,18,30,.32);text-align:center}
+.app-modal-icon{width:56px;height:56px;margin:0 auto 8px;border-radius:18px;display:grid;place-items:center;background:#edf6f2;font-size:28px}
+.app-modal-sheet h2{margin:4px 0 7px;font-size:22px;letter-spacing:-.4px}
+.app-modal-sheet p{margin:0 0 17px;color:var(--muted);font-size:14px;line-height:1.4}
+.app-modal-actions{display:grid;gap:9px}
+.app-modal-actions button{width:100%;min-height:52px;border-radius:16px;font-weight:850;font-size:14px;padding:10px 14px}
+.modal-primary{border:1px solid #0f8a67;background:#0f8a67;color:#fff}
+.modal-danger{border:1px solid #f0c8d0;background:#fff2f5;color:#b83955}
+.modal-secondary{border:1px solid var(--line);background:#f3f6f5;color:#334356}
+@media(max-width:430px){
+  .app-modal-sheet{width:calc(100% - 16px);margin-bottom:calc(8px + env(safe-area-inset-bottom));padding:17px;border-radius:23px}
+  .app-modal-sheet h2{font-size:20px}
+  .app-modal-actions button{min-height:50px;font-size:13px}
+}
+
+
+/* =========================================================
+   V1.6.0 — Profils de création de parcours
+   ========================================================= */
+.planner-mode{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:4px;
+  background:#edf2f0;
+  border-radius:14px;
+  padding:4px;
+  min-width:min(280px,52vw);
+}
+.planner-mode-btn{
+  min-width:0;
+  width:auto;
+  height:46px;
+  padding:4px 3px;
+  border:0;
+  border-radius:10px;
+  background:transparent;
+  opacity:.62;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:1px;
+  line-height:1;
+}
+.planner-mode-btn span{font-size:16px;line-height:1}
+.planner-mode-btn small{font-size:8px;font-weight:850;white-space:nowrap;color:#526173}
+.planner-mode-btn.active{background:#fff;opacity:1;box-shadow:0 3px 9px rgba(20,32,51,.08)}
+.planner-mode-btn.active small{color:var(--green)}
+@media(max-width:520px){
+  .planner-head{align-items:flex-start;flex-direction:column}
+  .planner-mode{width:100%;min-width:0}
+  .planner-mode-btn{height:44px}
+  .planner-mode-btn span{font-size:15px}
+  .planner-mode-btn small{font-size:8px}
+}
+
+/* =========================================================
+   V1.6.1 — Navigation par vrais écrans internes
+   Un seul écran est rendu dans le flux à la fois.
+   ========================================================= */
+.app-screen{
+  display:none;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+}
+.app-screen.active{display:block}
+.app-screen[aria-hidden="true"]{display:none!important}
+
+.screen-heading{
+  padding:18px 16px 4px;
+  max-width:900px;
+  margin:0 auto;
+}
+.screen-heading h2{
+  margin:0;
+  font-size:26px;
+  letter-spacing:-.6px;
+}
+.screen-heading p{
+  margin:5px 0 0;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.4;
+}
+.screen-content{
+  width:100%;
+  max-width:900px;
+  min-width:0;
+  margin:0 auto;
+  padding:12px 14px 18px;
+  display:grid;
+  gap:12px;
+}
+.map-home-content{padding-top:12px}
+
+/* Les anciennes cartes d'aperçu n'ont plus lieu d'être :
+   chaque rubrique possède désormais son propre écran. */
+.weather-page-summary{
+  padding:16px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:22px;
+  box-shadow:var(--shadow-soft);
+}
+
+.route-tools-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:22px;
+  box-shadow:var(--shadow-soft);
+  padding:12px;
+}
+.route-tools-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+}
+.route-tool-button{
+  min-width:0;
+  min-height:76px;
+  border:1px solid var(--line);
+  border-radius:17px;
+  background:#f7faf9;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  text-align:left;
+  cursor:pointer;
+  color:var(--text);
+}
+.route-tool-button:active{transform:scale(.985)}
+.route-tool-icon{
+  flex:0 0 42px;
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  background:var(--green-soft);
+  color:var(--green);
+  font-size:12px;
+  font-weight:900;
+}
+.route-tool-button>span:last-child{min-width:0}
+.route-tool-button strong{display:block;font-size:14px;color:var(--text)}
+.route-tool-button small{display:block;margin-top:3px;font-size:10px;color:var(--muted);line-height:1.25}
+.route-tool-create .route-tool-icon{font-size:18px;background:#e8f6f3;color:#0b8c7b}
+
+/* L'écran Activité est une destination en soi : le bouton Fermer de
+   l'ancienne carte n'est plus nécessaire. */
+.app-screen[data-screen="activity"] #activityCloseCardBtn{display:none}
+.app-screen[data-screen="activity"] #activityCard{display:block!important}
+
+/* Navigation fixe : l'état actif correspond maintenant à la page affichée. */
+.bottom-nav-btn[aria-current="page"]{background:var(--green-soft);color:var(--green)}
+
+@media(max-width:900px){
+  .screen-heading{padding:15px 10px 2px}
+  .screen-heading h2{font-size:24px}
+  .screen-heading p{font-size:13px}
+  .screen-content{padding:10px 10px 16px;gap:10px}
+  .map-home-content{padding-top:10px}
+}
+
+@media(max-width:430px){
+  .screen-heading{padding:13px 8px 2px}
+  .screen-heading h2{font-size:22px}
+  .screen-heading p{font-size:12px}
+  .screen-content{padding:8px 8px 14px;gap:8px}
+  .route-tools-card{padding:8px;border-radius:18px}
+  .route-tools-grid{grid-template-columns:1fr;gap:7px}
+  .route-tool-button{min-height:66px;padding:8px 10px}
+  .route-tool-button strong{font-size:13px}
+  .route-tool-button small{font-size:10px}
+}
+
+
+/* =========================================================
+   V1.7.0 — Randonnées autour d’un point
+   ========================================================= */
+.route-tools-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.route-tool-find .route-tool-icon{font-size:20px;background:#eef6ea;color:#4d7f2e}
+
+.hike-finder-panel{
+  position:absolute;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:890;
+  background:rgba(255,255,255,.97);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.96);
+  border-radius:20px;padding:12px;box-shadow:0 12px 30px rgba(20,32,51,.20)
+}
+.hike-finder-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.hike-finder-head strong,.hike-finder-head small{display:block}
+.hike-finder-head strong{font-size:15px}
+.hike-finder-head small{margin-top:3px;color:var(--muted);font-size:10px;line-height:1.35}
+.hike-finder-close{flex:0 0 40px;width:40px;height:40px;border:1px solid var(--line);border-radius:12px;background:#f4f7f6;font-size:18px}
+.hike-finder-radius{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:10px}
+.hike-radius-btn{min-height:40px;border:1px solid var(--line);border-radius:11px;background:#f2f6f4;color:#536273;font-size:11px;font-weight:850}
+.hike-radius-btn.active{background:var(--green);border-color:var(--green);color:#fff}
+.hike-finder-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
+.hike-finder-actions button{min-height:43px;border:1px solid var(--line);border-radius:12px;background:#eef4f1;color:#185e50;font-size:11px;font-weight:850}
+.hike-finder-note{margin-top:7px;color:#778597;font-size:9px;line-height:1.35}
+.hike-search-center{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:#fff;border:3px solid var(--green);box-shadow:0 5px 14px rgba(20,32,51,.25);font-size:15px}
+
+.hike-results-summary{margin-top:4px;color:var(--muted);font-size:11px;line-height:1.35}
+.hike-results-list{display:grid;gap:8px}
+.hike-result-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;background:#f5f8f7;border:1px solid #e8eeeb;border-radius:15px;padding:11px;min-width:0}
+.hike-result-main{min-width:0}
+.hike-result-name{font-size:14px;font-weight:850;line-height:1.25;overflow-wrap:anywhere}
+.hike-result-meta{margin-top:4px;color:var(--muted);font-size:10px;line-height:1.35}
+.hike-result-actions{display:flex;gap:5px;align-items:center}
+.hike-result-actions button{height:40px;border:1px solid var(--line);border-radius:11px;background:#fff;padding:0 10px;font-size:11px;font-weight:850;white-space:nowrap}
+.hike-result-actions .hike-load{background:var(--green);border-color:var(--green);color:#fff}
+
+@media(max-width:900px){
+  .route-tools-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:430px){
+  .route-tools-grid{grid-template-columns:1fr}
+  .hike-finder-panel{left:8px;right:8px;padding:10px}
+  .hike-finder-radius{gap:5px}
+  .hike-radius-btn{font-size:10px;padding:0 4px}
+  .hike-result-item{grid-template-columns:1fr}
+  .hike-result-actions{justify-content:stretch}
+  .hike-result-actions button{flex:1}
+}
+
+
+/* V1.7.1 — quatre profils d’activité */
+.activity-mode-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.activity-mode-row .mode-btn{min-width:0;white-space:normal;line-height:1.2}
+@media(max-width:360px){.activity-mode-row .mode-btn{font-size:11px;padding:9px 5px}}
+
+/* =========================================================
+   V1.8.0 — Parcours autour : Rando / Route / Gravel / VTT
+   Carte + liste synchronisées
+   ========================================================= */
+.hike-finder-panel{
+  max-height:min(55dvh,520px);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+.hike-finder-panel.hidden{display:none!important}
+.hike-finder-profiles{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:6px;
+  margin-top:10px;
+}
+.hike-profile-btn{
+  min-width:0;
+  min-height:50px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#f2f6f4;
+  color:#536273;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  font-weight:850;
+}
+.hike-profile-btn span{font-size:18px;line-height:1}
+.hike-profile-btn small{font-size:9px;line-height:1.1}
+.hike-profile-btn.active{background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 5px 14px rgba(15,138,103,.18)}
+
+.hike-finder-map-results{
+  display:grid;
+  gap:5px;
+  margin-top:8px;
+  max-height:150px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  padding-right:2px;
+}
+.hike-map-result{
+  width:100%;
+  min-width:0;
+  display:grid;
+  grid-template-columns:28px minmax(0,1fr);
+  gap:7px;
+  align-items:center;
+  text-align:left;
+  border:1px solid #e6ece9;
+  border-radius:11px;
+  background:rgba(247,250,249,.96);
+  padding:7px 8px;
+}
+.hike-map-result>span:first-child{font-size:17px;text-align:center}
+.hike-map-result strong,.hike-map-result small{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hike-map-result strong{font-size:11px}
+.hike-map-result small{font-size:8px;color:var(--muted);margin-top:2px}
+.hike-map-result.selected{border-color:#74c3aa;background:#e7f6f0;box-shadow:inset 3px 0 0 var(--green)}
+.hike-map-loading,.hike-map-empty{padding:9px;border-radius:10px;background:#f4f7f6;color:var(--muted);font-size:10px;text-align:center}
+
+.hike-result-item.selected{border-color:#80cdb5;background:#ebf8f3;box-shadow:inset 4px 0 0 var(--green)}
+.hike-result-select{
+  min-width:0;
+  width:100%;
+  border:0;
+  background:transparent;
+  padding:0;
+  text-align:left;
+  color:inherit;
+}
+.hike-result-select .hike-result-name,.hike-result-select .hike-result-meta{pointer-events:none}
+
+@media(max-width:430px){
+  .hike-finder-panel{max-height:58dvh}
+  .hike-finder-profiles{gap:4px}
+  .hike-profile-btn{min-height:46px;padding:4px 2px}
+  .hike-profile-btn span{font-size:16px}
+  .hike-profile-btn small{font-size:8px}
+  .hike-finder-map-results{max-height:120px}
+}
+
+
+/* =========================================================
+   V1.9.0 — Cartes hors ligne
+   ========================================================= */
+.offline-card{overflow:visible}
+.offline-network-badge{display:inline-flex;align-items:center;min-height:34px;padding:0 10px;border-radius:999px;background:#eef4f1;color:#31534a;font-size:11px;font-weight:850;white-space:nowrap}
+.offline-network-badge.offline{background:#fff1dc;color:#8a5a00}
+.offline-intro{margin:0 0 12px;color:var(--muted);font-size:12px;line-height:1.5}
+.offline-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.offline-options label{display:grid;gap:5px;min-width:0}
+.offline-options label>span{font-size:9px;color:var(--muted);font-weight:850;text-transform:uppercase;letter-spacing:.65px}
+.offline-options select{width:100%;min-width:0;min-height:44px;border:1px solid var(--line);border-radius:13px;background:#f6f9f8;color:var(--text);padding:0 10px;font-size:12px;font-weight:750}
+.offline-actions{display:flex;gap:8px;margin-top:10px}
+.offline-actions button{min-height:46px;border-radius:14px;font-weight:850;border:1px solid var(--line);padding:0 13px}
+.offline-download-btn{flex:1;background:linear-gradient(135deg,#128865,#0d7564);border-color:#0d7564!important;color:#fff;box-shadow:0 8px 18px rgba(15,138,103,.18)}
+.offline-download-btn:disabled{opacity:.55}
+.offline-online-btn{background:#eef4f8;color:#2d6298}
+.offline-progress{margin-top:10px;display:flex;align-items:center;gap:10px;padding:11px;border:1px solid #d7e9e1;background:#f0faf6;border-radius:14px}
+.offline-progress-spinner{width:36px;height:36px;display:grid;place-items:center;border-radius:50%;background:#fff;color:var(--green);font-size:22px;font-weight:900;animation:offline-spin 1s linear infinite}
+.offline-progress strong,.offline-progress small{display:block}.offline-progress strong{font-size:12px}.offline-progress small{margin-top:2px;color:var(--muted);font-size:10px;line-height:1.35}
+@keyframes offline-spin{to{transform:rotate(360deg)}}
+.offline-current{margin-top:10px;padding:10px 11px;border-radius:14px;background:#fff6e6;border:1px solid #f0d6a1;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:#76531b}.offline-current strong{min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.offline-list{display:grid;gap:8px;margin-top:10px}
+.offline-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:10px;border:1px solid #e3e9e6;background:#f7faf9;border-radius:14px;min-width:0}
+.offline-item-main{min-width:0}.offline-item-main strong{display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.offline-item-main small{display:block;margin-top:3px;color:var(--muted);font-size:9px;line-height:1.3}
+.offline-item-actions{display:flex;gap:5px}.offline-item-actions button{min-width:40px;height:38px;border:1px solid var(--line);border-radius:10px;background:#fff;font-size:11px;font-weight:850}.offline-item-actions .offline-use{color:#0f7c61}.offline-item-actions .offline-delete{color:var(--danger)}
+.offline-note{margin:10px 0 0}
+#map.offline-vector-map{background:#eef0e7}
+.offline-map-label{background:rgba(255,255,255,.88);border:1px solid rgba(255,255,255,.9);border-radius:8px;padding:2px 5px;color:#344455;font-size:10px;font-weight:750;box-shadow:0 2px 8px rgba(20,32,51,.1)}
+.offline-status-map{position:absolute;z-index:610;right:12px;top:55px;background:#fff5df;color:#7d560a;border:1px solid #efd49c;border-radius:12px;padding:7px 10px;font-size:10px;font-weight:850;box-shadow:0 5px 15px rgba(20,32,51,.12)}
+@media(max-width:520px){.offline-options{grid-template-columns:1fr}.offline-actions{flex-direction:column}.offline-actions button{width:100%}.offline-item{grid-template-columns:1fr}.offline-item-actions{justify-content:flex-end}}
+
+.offline-place-label{display:inline-block;max-width:120px;transform:translateX(-10px);padding:2px 4px;border-radius:5px;background:rgba(255,255,255,.72);color:#34414c;font-size:9px;font-weight:850;line-height:1.1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 0 #fff}
+
+/* V1.9.1 — indication de préparation automatique hors ligne */
+.offline-auto-note{
+  margin:8px 0 0;
+  padding:9px 10px;
+  border-radius:12px;
+  background:#eef8f4;
+  color:#356657;
+  font-size:11px;
+  line-height:1.4;
+}
+
+/* =========================================================
+   V1.10.0 — Fiches parcours + profil altimétrique interactif
+   ========================================================= */
+.finder-map-detail{
+  position:absolute;
+  left:10px;right:10px;
+  bottom:calc(10px + env(safe-area-inset-bottom));
+  z-index:905;
+  max-height:min(62dvh,620px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  background:rgba(255,255,255,.98);
+  backdrop-filter:blur(18px);
+  border:1px solid rgba(255,255,255,.96);
+  border-radius:20px;
+  padding:12px;
+  box-shadow:0 16px 38px rgba(20,32,51,.24);
+}
+.finder-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.finder-detail-head>div{min-width:0}
+.finder-detail-kicker{display:block;color:var(--green);font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.65px}
+.finder-detail-head strong{display:block;margin-top:3px;font-size:15px;line-height:1.25;overflow-wrap:anywhere}
+.finder-detail-head>button{flex:0 0 40px;width:40px;height:40px;border:1px solid var(--line);border-radius:12px;background:#f3f7f5;font-size:18px}
+.finder-detail-body{margin-top:10px}
+.finder-detail-loading{min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;text-align:center;color:var(--muted);background:#f6f9f8;border:1px solid #edf1ef;border-radius:15px;padding:14px}
+.finder-detail-loading.compact{min-height:70px}
+.finder-detail-loading strong{font-size:13px;color:var(--text)}
+.finder-detail-loading small{font-size:10px}
+.finder-detail-spinner{font-size:23px;display:block;animation:rr-spin .85s linear infinite;color:var(--green)}
+.finder-detail-error{padding:13px;border-radius:14px;background:#fff1f3;color:#9f3147;font-size:11px;font-weight:750;line-height:1.4}
+
+.finder-detail-profile{display:flex;align-items:center;gap:7px;margin-bottom:8px;color:var(--green)}
+.finder-detail-profile span{font-size:19px}.finder-detail-profile strong{font-size:12px}
+.finder-detail-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.finder-detail-stats>div{min-width:0;background:#f5f8f7;border:1px solid #edf1ef;border-radius:13px;padding:9px}
+.finder-detail-stats span{display:block;color:var(--muted);font-size:8px;text-transform:uppercase;letter-spacing:.45px;font-weight:800}
+.finder-detail-stats strong{display:block;margin-top:3px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.difficulty-pill{display:inline-flex;align-items:center;gap:4px;margin-top:9px;border-radius:999px;padding:7px 10px;font-size:10px;font-weight:800;background:#eef4f1;color:#31534a}
+.difficulty-pill.easy{background:#e9f7ef;color:#17683e}
+.difficulty-pill.moderate{background:#fff7da;color:#825d00}
+.difficulty-pill.hard{background:#fff0df;color:#984b00}
+.difficulty-pill.very-hard{background:#fff0f3;color:#a32c44}
+.finder-subtitle{margin:12px 0 6px;font-size:9px;color:var(--muted);font-weight:900;text-transform:uppercase;letter-spacing:.6px}
+.surface-breakdown{display:grid;gap:5px}
+.surface-row{display:grid;grid-template-columns:88px minmax(0,1fr) 38px;gap:7px;align-items:center;font-size:9px;color:#536273}
+.surface-row>strong{text-align:right;color:var(--text);font-size:9px}
+.surface-bar{height:7px;background:#e9eeec;border-radius:999px;overflow:hidden}
+.surface-bar i{display:block;height:100%;border-radius:inherit;background:#789185}
+.surface-bar i.surface-road{background:#3f7cc9}
+.surface-bar i.surface-gravel{background:#bb8a43}
+.surface-bar i.surface-trail{background:#4d8a57}
+.surface-bar i.surface-unknown{background:#a8b0b5}
+.surface-unavailable,.elevation-unavailable{padding:10px;border-radius:12px;background:#f5f8f7;color:var(--muted);font-size:10px;line-height:1.4}
+.finder-detail-note{margin:10px 0 0;color:#7b8794;font-size:8px;line-height:1.4}
+.finder-detail-actions,.finder-detail-card-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:10px}
+.finder-detail-card-actions{grid-template-columns:repeat(4,minmax(0,1fr))}
+.finder-detail-actions button,.finder-detail-card-actions button{min-width:0;min-height:42px;border:1px solid var(--line);border-radius:12px;background:#f2f6f4;color:#31534a;font-size:10px;font-weight:850;padding:5px}
+.finder-detail-actions .finder-detail-start,.finder-detail-card-actions .finder-detail-start{background:var(--green);border-color:var(--green);color:#fff}
+.finder-detail-card{overflow:visible!important}
+
+.elevation-chart{width:100%;min-width:0;background:linear-gradient(180deg,#f7fbf9,#eef5f2);border:1px solid #dfe9e4;border-radius:15px;padding:7px 7px 8px;user-select:none}
+.elevation-chart svg{display:block;width:100%;height:155px;touch-action:none;cursor:crosshair;overflow:visible}
+.elev-grid{stroke:#d8e3de;stroke-width:1;stroke-dasharray:5 5}
+.elev-area{fill:rgba(15,138,103,.13)}
+.elev-line{fill:none;stroke:#0f8a67;stroke-width:3.2;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+.elev-cursor{stroke:#e11d48;stroke-width:1.6;stroke-dasharray:4 4;vector-effect:non-scaling-stroke}
+.elev-dot{fill:#e11d48;stroke:#fff;stroke-width:3;vector-effect:non-scaling-stroke}
+.elev-progress{stroke:#2468e8;stroke-width:3;vector-effect:non-scaling-stroke}
+.elev-axis-label,.elev-alt-label{fill:#71808e;font-size:11px;font-weight:700;pointer-events:none}
+.elevation-readout{display:grid;grid-template-columns:1fr 1fr auto;gap:7px;align-items:center;padding:4px 4px 0}
+.elevation-readout>span{min-width:0;color:var(--muted);font-size:9px}
+.elevation-readout strong{display:block;color:var(--text);font-size:11px;margin-top:1px}
+.elevation-readout-hint{white-space:nowrap;text-align:right;font-weight:850;color:var(--green)!important}
+
+.route-detail-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:9px}
+.route-detail-mini{min-width:0;background:#f5f8f7;border:1px solid #edf1ef;border-radius:13px;padding:9px}
+.route-detail-mini span{display:block;color:var(--muted);font-size:8px;text-transform:uppercase;letter-spacing:.45px;font-weight:800}
+.route-detail-mini strong{display:block;margin-top:3px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.route-elevation-section{margin-top:12px}
+.elevation-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-bottom:6px}
+.elevation-section-head strong{display:block;font-size:13px;margin-top:2px}
+.elevation-section-head>span{color:var(--green);font-size:9px;font-weight:800;white-space:nowrap}
+
+@media(max-width:520px){
+  .finder-map-detail{left:8px;right:8px;padding:10px;max-height:64dvh}
+  .finder-detail-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .finder-detail-card-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .surface-row{grid-template-columns:78px minmax(0,1fr) 34px}
+  .elevation-chart svg{height:138px}
+  .route-detail-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@keyframes rr-spin{to{transform:rotate(360deg)}}
+
+
+/* V1.10.1 — profil altimétrique filtré */
+.elevation-filter-note{padding:4px 10px 9px;color:#718096;font-size:10px;line-height:1.3;text-align:center}
+
+
+/* v1.10.11 — état hors ligne + progression réelle */
+.auto-offline-badge{top:94px;right:12px;left:auto;background:#eef6ff;color:#245986;border-color:#cddff2}
+.auto-offline-badge.ready{background:#eaf8f1;color:#0b7758;border-color:#bfe7d5}
+.auto-offline-badge.partial{background:#fff3df;color:#8b5a00;border-color:#efd39a}
+.elev-live-dot{fill:#e11d48;stroke:#fff;stroke-width:3;pointer-events:none}
+.elev-live-dot.hidden{display:none}
+.elev-dot{fill:#7b8794;stroke:#fff;stroke-width:2}
+
+/* =========================================================
+   V1.10.12 — panneau activité compact / bottom sheet
+   ========================================================= */
+.activity-map-panel{
+  top:auto !important;
+  bottom:calc(12px + env(safe-area-inset-bottom)) !important;
+  left:10px;
+  right:10px;
+  max-height:min(58vh,560px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:24px 11px 11px;
+  border-radius:22px;
+  transition:max-height .22s ease,padding .22s ease,box-shadow .22s ease,background .22s ease;
+}
+.activity-panel-toggle{
+  position:absolute;
+  top:4px;
+  left:50%;
+  transform:translateX(-50%);
+  width:52px;
+  height:22px;
+  border:0;
+  border-radius:999px;
+  background:transparent;
+  color:#7a8794;
+  font-size:20px;
+  line-height:20px;
+  font-weight:900;
+  z-index:2;
+  padding:0;
+}
+.activity-panel-toggle::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:3px;
+  transform:translateX(-50%);
+  width:34px;
+  height:4px;
+  border-radius:999px;
+  background:#d8dfdc;
+}
+.activity-panel-toggle{padding-top:5px}
+.activity-map-panel.collapsed{
+  max-height:126px;
+  overflow:hidden;
+  padding:20px 10px 9px;
+  cursor:pointer;
+}
+.activity-map-panel.collapsed .activity-map-head{
+  margin-bottom:4px;
+}
+.activity-map-panel.collapsed .activity-map-head small{
+  display:none;
+}
+.activity-map-panel.collapsed .activity-map-head strong{
+  font-size:14px;
+}
+.activity-map-panel.collapsed .activity-map-actions button{
+  width:38px;
+  height:34px;
+}
+.activity-map-panel.collapsed .activity-live-stats{
+  margin-top:5px;
+  gap:5px;
+}
+.activity-map-panel.collapsed .activity-live-stats>div{
+  padding:5px 7px;
+  border-radius:10px;
+}
+.activity-map-panel.collapsed .activity-live-stats span{
+  font-size:7px;
+}
+.activity-map-panel.collapsed .activity-live-stats strong{
+  font-size:12px;
+  margin-top:1px;
+}
+.activity-map-panel.collapsed .route-follow-guide,
+.activity-map-panel.collapsed .activity-map-bottom{
+  display:none !important;
+}
+/* Pendant une activité, le panneau d’activité remplace le panneau radar en bas. */
+.map-wrap.fullscreen.activity-active .radar-panel{
+  display:none !important;
+}
+/* Le panneau reste au-dessus de l’attribution Leaflet sans masquer les contrôles à droite. */
+.map-wrap.fullscreen.activity-active .activity-map-panel{
+  z-index:10020;
+}
+@media(max-width:520px){
+  .activity-map-panel{
+    left:8px !important;
+    right:8px !important;
+    bottom:calc(8px + env(safe-area-inset-bottom)) !important;
+    max-height:min(58vh,520px);
+  }
+  .activity-map-panel.collapsed{max-height:122px}
+}
+@media(max-width:360px){
+  .activity-map-panel{
+    left:6px !important;
+    right:6px !important;
+  }
+  .activity-map-panel.collapsed{max-height:118px}
+}
+
+
+/* =========================================================
+   V1.10.15 — Pull-to-refresh autorisé uniquement dans Infos
+   Le défilement vertical normal reste disponible partout.
+   ========================================================= */
+html.pull-refresh-locked,
+body.pull-refresh-locked,
+html.pull-refresh-allowed,
+body.pull-refresh-allowed {
+  /* V1.10.16 : ne plus bloquer le défilement global via CSS.
+     Le pull-to-refresh est filtré finement en JavaScript. */
+  overscroll-behavior-y: auto;
+}
+
+
+/* V1.10.17 — fermeture explicite du planificateur */
+.planner-head{position:relative;padding-right:46px}
+.planner-close-btn{position:absolute;top:0;right:0;width:40px;height:40px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--text);font-size:20px;font-weight:800;display:grid;place-items:center;box-shadow:0 3px 10px rgba(20,32,51,.08);z-index:3}
+.planner-close-btn:active{transform:scale(.96)}
+@media(max-width:900px){.planner-head{padding-right:48px}.planner-close-btn{width:42px;height:42px}}

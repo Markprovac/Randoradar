@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
+<meta content="#f7faf9" name="theme-color"/>
+<meta content="Rando Radar — carte topo, GPS, suivi d’activité, création et import GPX, radar pluie et météo du parcours." name="description"/>
+<title>Rando Radar</title>
+<link href="manifest.webmanifest" rel="manifest"/>
+<link href="icon-192.png" rel="icon"/>
+<link href="icon-192.png" rel="apple-touch-icon"/>
+<link href="vendor/leaflet/leaflet.css" rel="stylesheet"/>
+<link href="styles.css?v=1.10.17" rel="stylesheet"/>
+</head>
+<body>
+<div id="app">
+<header class="topbar" id="topSection">
+<div class="brand">
+<div aria-hidden="true" class="brand-mark">▲</div>
+<div>
+<div class="eyebrow">RANDO &amp; VÉLO</div>
+<h1>Rando Radar</h1>
+</div>
+</div>
+<div class="top-actions">
+<div aria-label="Météo actuelle" class="weather-chip">
+<span class="weather-icon" id="weatherIcon">🌤️</span>
+<strong><span id="tempNow">--</span>°</strong>
+</div>
+<button aria-label="Installer l'application" class="icon-btn hidden" id="installBtn" title="Installer">⬇️</button>
+<button aria-label="Me localiser" class="icon-btn locate-top" id="locateBtn" title="Me localiser">◎</button>
+</div>
+</header>
+<main><section aria-label="Carte" class="app-screen active" data-screen="map"><section aria-label="Carte" class="map-wrap" id="mapWrap">
+<div aria-label="Carte de randonnée" id="map" role="application"></div>
+<button aria-label="Fermer la carte" class="map-float-btn map-close-btn hidden" id="mapCloseBtn">✕ <span>Fermer</span></button>
+<button aria-label="Recentrer sur ma position" class="map-float-btn map-locate-btn hidden" id="mapLocateBtn">◎</button>
+<div aria-label="Contrôles de zoom" class="map-zoom-controls hidden" id="mapZoomControls">
+<button aria-label="Zoomer" id="mapZoomInBtn" type="button">+</button>
+<button aria-label="Dézoomer" id="mapZoomOutBtn" type="button">−</button>
+</div>
+<div class="map-expand-hint" id="mapExpandHint">↗ Plein écran</div>
+<div class="map-pills">
+<button class="pill active" data-basemap="topo">⛰️ Topo</button>
+<button class="pill" data-basemap="osm">🗺️ Plan</button>
+<button class="pill active" id="radarToggle">🌧️ Radar</button>
+</div>
+<div class="gps-badge" id="gpsBadge">GPS : inactif</div>
+<div class="activity-map-panel hidden collapsed" id="activityMapPanel">
+<button class="activity-panel-toggle" id="activityPanelToggle" type="button" aria-label="Agrandir le panneau d’activité" title="Agrandir / réduire">⌃</button>
+<div class="activity-map-head">
+<div>
+<strong id="activityMapTitle">🥾 Randonnée</strong>
+<small id="activityMapStatus">GPS enregistrement</small>
+</div>
+<div class="activity-map-actions">
+<button aria-label="Mettre en pause" id="activityPauseBtn" type="button">⏸</button>
+<button aria-label="Terminer l'activité" id="activityStopBtn" type="button">⏹</button>
+</div>
+</div>
+<div class="activity-live-stats">
+<div><span>Distance</span><strong id="activityMapDistance">0,00 km</strong></div>
+<div><span>Temps</span><strong id="activityMapTime">00:00</strong></div>
+<div><span>Vitesse</span><strong id="activityMapSpeed">0,0 km/h</strong></div>
+</div>
+<div class="route-follow-guide hidden" id="routeFollowGuide">
+<div class="route-follow-name"><span>GPX suivi</span><strong id="routeFollowName">Parcours</strong></div>
+<div><span>Restant</span><strong id="routeFollowRemaining">-- km</strong></div>
+<div><span>Avancement</span><strong id="routeFollowProgress">--%</strong></div>
+<div><span>Écart</span><strong id="routeFollowDeviation">-- m</strong></div>
+</div>
+<div class="activity-map-bottom">
+<button class="target-btn" id="targetSelectBtn" type="button">🎯 Destination</button>
+<div class="target-guide hidden" id="targetGuide">
+<span class="target-arrow" id="targetArrow">↑</span>
+<div><strong id="targetDistance">--</strong><small id="targetBearing">--</small></div>
+<div class="target-eta"><span>ETA</span><strong id="targetEta">--</strong></div>
+<button aria-label="Supprimer la destination" id="targetClearBtn" type="button">✕</button>
+</div>
+</div>
+</div>
+<div class="hike-finder-panel hidden" id="hikeFinderPanel">
+<div class="hike-finder-head">
+<div>
+<strong>🧭 Parcours autour</strong>
+<small id="hikeFinderStatus">Choisis une activité puis touche la carte.</small>
+</div>
+<button aria-label="Fermer la recherche" class="hike-finder-close" id="hikeFinderCloseBtn" type="button">✕</button>
+</div>
+<div class="hike-finder-profiles" aria-label="Type de parcours">
+<button class="hike-profile-btn active" data-hike-profile="hike" type="button"><span>🥾</span><small>Rando</small></button>
+<button class="hike-profile-btn" data-hike-profile="road" type="button"><span>🚴</span><small>Route</small></button>
+<button class="hike-profile-btn" data-hike-profile="gravel" type="button"><span>🚲</span><small>Gravel</small></button>
+<button class="hike-profile-btn" data-hike-profile="mtb" type="button"><span>🚵</span><small>VTT</small></button>
+</div>
+<div class="hike-finder-radius" aria-label="Rayon de recherche">
+<button class="hike-radius-btn" data-hike-radius="2" type="button">2 km</button>
+<button class="hike-radius-btn active" data-hike-radius="5" type="button">5 km</button>
+<button class="hike-radius-btn" data-hike-radius="10" type="button">10 km</button>
+<button class="hike-radius-btn" data-hike-radius="20" type="button">20 km</button>
+</div>
+<div class="hike-finder-actions">
+<button id="hikeFinderGpsBtn" type="button">📍 Ma position</button>
+<button class="hidden" id="hikeFinderListBtn" type="button">📋 Voir la liste</button>
+</div>
+<div class="hike-finder-note">Les tracés trouvés sont affichés directement sur la carte et dans la liste. Route filtre fortement les chemins non revêtus ; Gravel accepte les pistes roulantes ; VTT privilégie les parcours tout-terrain.</div>
+<div class="hike-finder-map-results" id="hikeFinderMapResults"></div>
+</div>
+<div class="finder-map-detail hidden" id="finderMapDetail">
+<div class="finder-detail-head"><div><span class="finder-detail-kicker" id="finderMapDetailType">Parcours</span><strong id="finderMapDetailName">—</strong></div><button id="finderMapDetailClose" type="button" aria-label="Fermer les détails">✕</button></div>
+<div id="finderMapDetailBody" class="finder-detail-body"><div class="finder-detail-loading">Sélectionne un tracé pour afficher ses informations.</div></div>
+<div class="finder-detail-actions">
+<button type="button" data-finder-detail-action="save">💾 Enregistrer</button>
+<button type="button" data-finder-detail-action="load">Charger</button>
+<button type="button" class="finder-detail-start" data-finder-detail-action="start">▶ Démarrer</button>
+</div>
+</div>
+<div class="planner-panel hidden" id="plannerPanel">
+<div class="planner-head">
+<div>
+<strong>Créer un parcours</strong>
+<small id="plannerStatus">Touchez la carte pour placer le départ.</small>
+</div>
+<button aria-label="Fermer la création de parcours" class="planner-close-btn" id="plannerCloseBtn" title="Fermer" type="button">✕</button>
+<div aria-label="Profil de parcours" class="planner-mode" role="group">
+<button class="planner-mode-btn active" data-planner-mode="hike" title="Randonnée" type="button">
+<span>🥾</span><small>Rando</small>
+</button>
+<button class="planner-mode-btn" data-planner-mode="road" title="Vélo de route" type="button">
+<span>🚴</span><small>Route</small>
+</button>
+<button class="planner-mode-btn" data-planner-mode="gravel" title="Gravel" type="button">
+<span>🚲</span><small>Gravel</small>
+</button>
+<button class="planner-mode-btn" data-planner-mode="mtb" title="VTT" type="button">
+<span>🚵</span><small>VTT</small>
+</button>
+</div>
+</div>
+<div class="planner-actions">
+<button id="plannerGpsBtn" type="button">📍 Départ GPS</button>
+<button disabled="" id="plannerUndoBtn" type="button">↶ Annuler</button>
+<button disabled="" id="plannerClearBtn" type="button">Effacer</button>
+<button class="planner-primary" disabled="" id="plannerSaveBtn" type="button">💾 Enregistrer</button>
+</div>
+<div class="planner-note">Choisis le profil avant de tracer : Rando privilégie les sentiers, Route les surfaces adaptées au vélo de route, Gravel accepte davantage de pistes et VTT davantage de chemins. Si le routeur avancé est indisponible, un profil vélo générique est utilisé en secours.</div>
+</div>
+<div class="radar-panel" id="radarPanel">
+<div class="radar-row">
+<button aria-label="Lire l'animation radar" class="radar-play" id="radarPlay">▶</button>
+<input id="radarSlider" max="0" min="0" step="1" type="range" value="0"/>
+<span class="radar-time" id="radarTime">Radar…</span>
+</div>
+<div class="radar-sub">Radar observé · 2 dernières heures</div>
+</div>
+</section><div class="screen-content map-home-content"><section aria-label="Actions principales" class="quick-actions">
+<label class="quick-button quick-gpx" for="gpxInput">
+<span class="quick-icon">GPX</span>
+<span>Importer GPX</span>
+</label>
+<input accept=".gpx,application/gpx+xml,application/xml,text/xml" hidden="" id="gpxInput" type="file"/>
+<button class="quick-button quick-route" id="createRouteBtn" type="button">
+<span class="quick-icon">⌁＋</span>
+<span>Créer parcours</span>
+</button>
+<button class="quick-button quick-activity" id="activityOpenBtn" type="button">
+<span class="quick-icon">▶</span>
+<span>Démarrer activité</span>
+</button>
+<button class="quick-button quick-weather" disabled="" id="analyzeBtn" type="button">
+<span class="quick-icon">☔</span>
+<span>Analyser météo</span>
+</button>
+</section><div class="alert-card neutral" id="alertCard">
+<div class="alert-icon" id="alertIcon">🧭</div>
+<div>
+<strong id="alertTitle">Prêt pour la sortie</strong>
+<p id="alertText">Active le GPS ou charge un fichier GPX pour analyser la météo.</p>
+</div>
+</div></div></section><section aria-label="Activité" class="app-screen" data-screen="activity"><div class="screen-heading"><h2>Activité</h2><p>Démarre ou consulte ton suivi GPS sans mélanger les autres rubriques.</p></div><div class="screen-content"><section class="route-card" data-section="activity" id="activityCard">
+<div class="section-head">
+<div>
+<div class="label">Suivi GPS</div>
+<h2 id="activityTitle">Nouvelle activité</h2>
+</div>
+<button class="text-btn" id="activityCloseCardBtn" type="button">Fermer</button>
+</div>
+<div aria-label="Type d’activité" class="segmented activity-mode-row" role="group">
+<button class="activity-mode-btn mode-btn active" data-activity-mode="hike">🥾 Randonnée</button>
+<button class="activity-mode-btn mode-btn" data-activity-mode="road">🚴 Vélo route</button>
+<button class="activity-mode-btn mode-btn" data-activity-mode="gravel">🚲 Gravel</button>
+<button class="activity-mode-btn mode-btn" data-activity-mode="mtb">🚵 VTT</button>
+</div>
+<div class="activity-main-actions">
+<button class="activity-start" id="activityStartBtn" type="button">▶ Démarrer</button>
+<button class="activity-secondary hidden" id="activityExportBtn" type="button">📥 Exporter GPX</button>
+</div>
+<div class="activity-detail-stats hidden" id="activityStats">
+<div><span class="label">Distance</span><strong id="activityDistance">0,00 km</strong></div>
+<div><span class="label">Durée</span><strong id="activityTime">00:00</strong></div>
+<div><span class="label">Vitesse</span><strong id="activitySpeed">0,0 km/h</strong></div>
+<div><span class="label">Moyenne</span><strong id="activityAvgSpeed">0,0 km/h</strong></div>
+</div>
+<p class="activity-help" id="activityHelp">Choisis randonnée, vélo route, gravel ou VTT, puis démarre. La trace sera dessinée en direct sur la carte.</p>
+</section></div></section><section aria-label="Parcours" class="app-screen" data-screen="routes"><div class="screen-heading"><h2>Parcours</h2><p>Importe un GPX, crée un itinéraire ou retrouve tes parcours enregistrés.</p></div><div class="screen-content"><section class="route-tools-card">
+<div class="route-tools-grid">
+<label class="route-tool-button route-tool-import" for="gpxInput">
+<span class="route-tool-icon">GPX</span>
+<span><strong>Importer un GPX</strong><small>Charger un parcours existant</small></span>
+</label>
+<button class="route-tool-button route-tool-create" id="routesCreateBtn" type="button">
+<span class="route-tool-icon">⌁＋</span>
+<span><strong>Créer un parcours</strong><small>Rando, route, gravel ou VTT</small></span>
+</button>
+<button class="route-tool-button route-tool-find" id="routesFindHikesBtn" type="button">
+<span class="route-tool-icon">🥾</span>
+<span><strong>Parcours autour</strong><small>Rando, route, gravel ou VTT</small></span>
+</button>
+</div>
+</section><section class="route-card hidden" id="hikeFinderResultsCard">
+<div class="section-head">
+<div>
+<div class="label">OpenStreetMap</div>
+<h2>Parcours trouvés</h2>
+<div class="hike-results-summary" id="hikeFinderResultsSummary"></div>
+</div>
+<button class="text-btn" id="hikeFinderNewSearchBtn" type="button">Nouvelle recherche</button>
+</div>
+<div class="hike-results-list" id="hikeFinderResultsList"></div>
+</section><section class="route-card finder-detail-card hidden" id="finderDetailCard">
+<div class="section-head">
+<div><div class="label" id="finderDetailType">Parcours sélectionné</div><h2 id="finderDetailName">—</h2></div>
+<button class="text-btn" id="finderDetailClose" type="button">Fermer</button>
+</div>
+<div id="finderDetailBody"><div class="finder-detail-loading">Sélectionne un parcours dans la liste.</div></div>
+<div class="finder-detail-card-actions">
+<button type="button" data-finder-detail-action="show">🗺️ Carte</button>
+<button type="button" data-finder-detail-action="save">💾 Enregistrer</button>
+<button type="button" data-finder-detail-action="load">Charger</button>
+<button type="button" class="finder-detail-start" data-finder-detail-action="start">▶ Démarrer</button>
+</div>
+</section><section class="route-card hidden" data-section="routes" id="routeCard">
+<div class="section-head">
+<div>
+<div class="label">Parcours chargé</div>
+<h2 id="routeName">Randonnée</h2>
+</div>
+<div class="section-actions">
+<button class="text-btn" id="exportRouteBtn">GPX</button>
+<button class="text-btn" id="clearRouteBtn">Retirer</button>
+</div>
+</div>
+<div class="stats-grid">
+<div><span class="label">Distance</span><strong id="routeDistance">-- km</strong></div>
+<div><span class="label">D+</span><strong id="routeGain">-- m</strong></div>
+<div><span class="label">D-</span><strong id="routeLoss">-- m</strong></div>
+<div><span class="label">Point haut</span><strong id="routeHigh">-- m</strong></div>
+</div>
+<div class="route-detail-summary" id="routeDetailSummary">
+<div class="route-detail-mini"><span>Durée estimée</span><strong id="routeDuration">—</strong></div>
+<div class="route-detail-mini"><span>Difficulté</span><strong id="routeDifficulty">—</strong></div>
+<div class="route-detail-mini"><span>Point bas</span><strong id="routeLow">—</strong></div>
+<div class="route-detail-mini"><span>Terrain</span><strong id="routeSurface">—</strong></div>
+</div>
+<div class="route-elevation-section hidden" id="routeElevationSection">
+<div class="elevation-section-head"><div><span class="label">Profil altimétrique</span><strong>Altitude du parcours</strong></div><span id="routeElevationHint">Glisse sur la courbe</span></div>
+<div id="routeElevationChart"></div>
+</div>
+<div class="mode-row">
+<span class="label">Type de sortie</span>
+<div aria-label="Mode de déplacement" class="segmented" role="group">
+<button class="mode-btn active" data-mode="hike">🥾 Randonnée</button>
+<button class="mode-btn" data-mode="bike">🚴 Vélo</button>
+</div>
+</div>
+<div class="route-start-actions">
+<button class="route-start-btn" id="routeStartBtn" type="button">▶ Démarrer ce parcours</button>
+<button class="route-show-btn" id="routeShowBtn" type="button">🗺️ Afficher sur la carte</button>
+</div>
+<p class="route-start-help">Le tracé GPX restera visible pendant l’activité. Ta trace réelle sera enregistrée séparément.</p>
+<div class="route-forecast hidden" id="routeForecast"></div>
+</section><section class="route-card offline-card" id="offlineCard">
+<div class="section-head">
+<div>
+<div class="label">Sans réseau</div>
+<h2>Cartes hors ligne</h2>
+</div>
+<span class="offline-network-badge" id="offlineNetworkBadge">🌐 En ligne</span>
+</div>
+<p class="offline-intro">Prépare une carte légère avant de partir : routes, pistes, sentiers, cours d’eau et points utiles sont enregistrés dans le téléphone avec le parcours et la dernière météo disponible.</p>
+<div class="offline-options">
+<label><span>Zone</span><select id="offlineSourceSelect"><option value="route">Autour du parcours chargé</option><option value="location">Autour de ma position</option></select></label>
+<label><span>Marge</span><select id="offlineBufferSelect"><option value="1">1 km</option><option value="3" selected>3 km</option><option value="5">5 km</option></select></label>
+</div>
+<div class="offline-actions">
+<button class="offline-download-btn" id="offlinePrepareBtn" type="button">⬇️ Préparer hors ligne</button>
+<button class="offline-online-btn hidden" id="offlineBackOnlineBtn" type="button">🌐 Revenir à la carte en ligne</button>
+</div>
+<div class="offline-progress hidden" id="offlineProgress"><div class="offline-progress-spinner">↻</div><div><strong id="offlineProgressTitle">Préparation…</strong><small id="offlineProgressText">Téléchargement des données cartographiques.</small></div></div>
+<div class="offline-current hidden" id="offlineCurrent"><span>📴 Carte locale active</span><strong id="offlineCurrentName">—</strong></div>
+<div class="offline-list" id="offlineList"><div class="skeleton">Aucune carte hors ligne enregistrée.</div></div>
+<p class="tiny offline-note">La carte hors ligne est une carte vectorielle légère issue d’OpenStreetMap. Elle reste utilisable avec le GPS et le suivi d’activité, mais le radar et les nouvelles prévisions météo nécessitent Internet.</p>
+</section><section class="route-card hidden" data-section="routes" id="savedRoutesCard">
+<div class="section-head">
+<div>
+<div class="label">Bibliothèque locale</div>
+<h2>Mes parcours</h2>
+</div>
+</div>
+<div class="saved-routes-list" id="savedRoutesList"></div>
+</section></div></section><section aria-label="Météo" class="app-screen" data-screen="weather"><div class="screen-heading"><h2>Météo</h2><p>Conditions à ta position et évolution au cours des prochaines heures.</p></div><div class="screen-content"><article class="overview-card weather-overview weather-page-summary">
+<div class="overview-head"><span>Météo</span><span class="overview-badge">☁️</span></div>
+<div class="metric-line"><span>Pluie</span><strong id="rainNow">-- mm</strong></div>
+<div class="metric-line"><span>Rafales</span><strong id="gustNow">-- km/h</strong></div>
+<div class="metric-line"><span>Ressenti</span><strong id="feelNow">--°</strong></div>
+<div class="metric-line"><span>Altitude</span><strong id="elevationNow">-- m</strong></div>
+</article><section class="forecast-card" data-section="weather" id="forecastSection">
+<div class="section-head">
+<div>
+<div class="label">Prévision locale</div>
+<h2>Prochaines heures</h2>
+<div class="weather-updated" id="weatherUpdatedAt">Dernière mise à jour : --:--</div>
+</div>
+<button aria-live="polite" class="text-btn weather-refresh-btn" id="refreshWeatherBtn" type="button">
+<span aria-hidden="true" class="refresh-weather-icon" id="refreshWeatherIcon">↻</span>
+<span id="refreshWeatherLabel">Actualiser</span>
+</button>
+</div>
+<div class="hourly-scroll" id="hourlyForecast">
+<div class="skeleton">Active le GPS pour afficher la météo.</div>
+</div>
+</section></div></section><section aria-label="Infos" class="app-screen" data-screen="info"><div class="screen-heading"><h2>Infos</h2><p>Sources de données et version de Rando Radar.</p></div><div class="screen-content"><section class="info-card" id="infoSection">
+<strong>À propos des données</strong>
+<p>Météo et altitude : Open‑Meteo / modèles Météo‑France AROME &amp; ARPEGE / Copernicus DEM. Radar : RainViewer. Cartographie : OpenTopoMap et OpenStreetMap. Routage : OpenStreetMap/FOSSGIS OSRM et Valhalla selon le profil. Parcours autour : itinéraires OpenStreetMap via Overpass API, filtrés selon le profil choisi. Cartes hors ligne : routes, sentiers et points utiles OpenStreetMap stockés localement dans le téléphone.</p>
+<p class="tiny">Le radar affiche des observations passées, pas une prévision radar future. En montagne, vérifie aussi les vigilances et les conditions réelles avant de partir.</p>
+<p class="tiny app-version">Version chargée : <strong>1.10.17</strong></p>
+</section></div></section></main>
+<nav aria-label="Navigation principale" class="bottom-nav">
+<button class="bottom-nav-btn active" data-nav="map" type="button"><span>🗺️</span><small>Carte</small></button>
+<button class="bottom-nav-btn" data-nav="activity" type="button"><span>〽️</span><small>Activité</small></button>
+<button class="bottom-nav-btn" data-nav="routes" type="button"><span>⌁</span><small>Parcours</small></button>
+<button class="bottom-nav-btn" data-nav="weather" type="button"><span>☁️</span><small>Météo</small></button>
+<button class="bottom-nav-btn" data-nav="info" type="button"><span>⚙️</span><small>Infos</small></button>
+</nav>
+</div>
+<div aria-live="polite" class="toast" id="toast" role="status"></div>
+<div aria-labelledby="finishActivityTitle" aria-modal="true" class="app-modal hidden" id="finishActivityModal" role="dialog">
+<div class="app-modal-backdrop" data-finish-action="cancel"></div>
+<div class="app-modal-sheet">
+<div aria-hidden="true" class="app-modal-icon">🏁</div>
+<h2 id="finishActivityTitle">Terminer l’activité ?</h2>
+<p>Choisis si tu veux conserver la trace enregistrée.</p>
+<div class="app-modal-actions">
+<button class="modal-primary" id="finishSaveBtn" type="button">💾 Enregistrer l’activité</button>
+<button class="modal-danger" id="finishDiscardBtn" type="button">🗑️ Terminer sans enregistrer</button>
+<button class="modal-secondary" id="finishCancelBtn" type="button">Continuer l’activité</button>
+</div>
+</div>
+</div>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="app.js?v=1.10.17"></script>
+</body>
+</html>
