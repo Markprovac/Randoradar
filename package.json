@@ -1,0 +1,21 @@
+{
+  "name": "rando-radar-android",
+  "version": "1.10.17",
+  "private": true,
+  "description": "Rando Radar PWA packaged as an Android app with Capacitor.",
+  "scripts": {
+    "copy:leaflet": "node scripts/copy-leaflet.mjs",
+    "android:add": "npx cap add android",
+    "android:sync": "npx cap sync android",
+    "android:patch": "node scripts/patch-android.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.0",
+    "@capacitor/core": "8.5.0",
+    "leaflet": "1.9.4"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "8.5.0"
+  }
+}
