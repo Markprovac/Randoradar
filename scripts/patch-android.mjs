@@ -7,7 +7,10 @@ const permissions = [
   'android.permission.INTERNET',
   'android.permission.ACCESS_NETWORK_STATE',
   'android.permission.ACCESS_COARSE_LOCATION',
-  'android.permission.ACCESS_FINE_LOCATION'
+  'android.permission.ACCESS_FINE_LOCATION',
+  'android.permission.POST_NOTIFICATIONS',
+  'android.permission.FOREGROUND_SERVICE',
+  'android.permission.FOREGROUND_SERVICE_LOCATION'
 ];
 
 // Les <uses-permission> doivent être des enfants de <manifest>,
@@ -44,9 +47,9 @@ fs.writeFileSync(manifestPath, manifest);
 const gradlePath = 'android/app/build.gradle';
 if (fs.existsSync(gradlePath)) {
   let gradle = fs.readFileSync(gradlePath, 'utf8');
-  gradle = gradle.replace(/versionCode\s+\d+/, 'versionCode 11017');
-  gradle = gradle.replace(/versionName\s+"[^"]+"/, 'versionName "1.10.17"');
+  gradle = gradle.replace(/versionCode\s+\d+/, 'versionCode 11018');
+  gradle = gradle.replace(/versionName\s+"[^"]+"/, 'versionName "1.10.18"');
   fs.writeFileSync(gradlePath, gradle);
 }
 
-console.log('Android configuré : GPS, réseau, portrait, version 1.10.17');
+console.log('Android configuré : GPS, réseau, portrait, version 1.10.18');
