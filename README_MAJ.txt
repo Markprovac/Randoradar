@@ -1,13 +1,17 @@
-Rando Radar 1.10.19 — correction GPS écran éteint
+Rando Radar 1.10.20 — correction GPS écran éteint
 
-Remplacer sur GitHub :
+- Remplace Android LocationManager par Google Fused Location Provider 21.4.0.
+- Service de premier plan Android type location.
+- Haute précision, mises à jour ~2 s, récupération des lots de positions reçus en veille.
+- Les points sont toujours enregistrés nativement dans le stockage interne de l'application.
+- L'interface affiche maintenant le nombre de points GPS natifs reçus pendant l'activité.
+- Conserve l'interface PWA, la carte et les boutons existants.
+
+Fichiers minimum à remplacer dans GitHub :
 - package.json
 - scripts/patch-android.mjs
 - www/app.js
-- www/index.html
-- www/styles.css
-- www/sw.js
 
 Puis Actions > Build Rando Radar APK > Run workflow.
 
-Important : cette version remplace le plugin GPS précédent par un service Android natif Rando Radar qui écrit les points dans le stockage interne pendant que l'écran est éteint. Les anciennes activités en cours provenant de la version précédente ne sont pas restaurées pour éviter de réafficher une trace corrompue.
+Sur Xiaomi/HyperOS, régler aussi Rando Radar sur Batterie > Aucune restriction pour les tests longs.
