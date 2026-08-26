@@ -1695,3 +1695,45 @@ body.pull-refresh-allowed {
   }
   .finder-map-detail{z-index:10120;padding-top:27px}
 }
+
+
+/* =========================================================
+   V1.10.26 — marqueur profil aligné + vrai geste bottom sheet
+   ========================================================= */
+/* La poignée et l'en-tête capturent le geste vertical au lieu de laisser
+   Android/WebView le convertir en scroll puis pointercancel. */
+.finder-detail-sheet-toggle,
+.finder-map-detail .finder-detail-head{
+  touch-action:none;
+}
+.finder-map-detail.sheet-dragging{
+  transform:translateY(var(--sheet-drag-y,0));
+  transition:none !important;
+  will-change:transform;
+}
+.finder-map-detail:not(.sheet-dragging){
+  transform:translateY(0);
+}
+.finder-detail-sheet-toggle{
+  cursor:grab;
+}
+.finder-detail-sheet-toggle:active{
+  cursor:grabbing;
+}
+
+/* Point rouge du profil / avancement : même famille de marker DOM que le GPS\n   bleu, afin de rester géographiquement aligné quand la carte tourne. */
+.rr-red-map-point-wrap{
+  background:transparent !important;
+  border:0 !important;
+}
+.rr-red-map-point{
+  display:block;
+  width:18px;
+  height:18px;
+  margin:2px;
+  border-radius:50%;
+  background:#e11d48;
+  border:3px solid #fff;
+  box-shadow:0 2px 8px rgba(20,32,51,.34);
+  box-sizing:border-box;
+}

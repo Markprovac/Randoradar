@@ -1,4 +1,4 @@
-/* Rando Radar v1.10.25 — radar résilient + reprise animation + fiche parcours réductible */
+/* Rando Radar v1.10.26 — marqueur altitude aligné + fiche parcours glissable */
 (() => {
   'use strict';
 
@@ -1947,12 +1947,25 @@
     });
   }
 
+  function redMapPointIcon() {
+    return L.divIcon({
+      className: 'rr-red-map-point-wrap',
+      html: '<span class="rr-red-map-point"></span>',
+      iconSize: [22, 22],
+      iconAnchor: [11, 11]
+    });
+  }
+
   function showElevationPointOnMap(point) {
     if (!state.map || !point || !Number.isFinite(point.lat) || !Number.isFinite(point.lon)) return;
+    const ll = [Number(point.lat), Number(point.lon)];
+    // Important avec leaflet-rotate : un vrai L.marker est recalculé par le plugin
+    // comme le point GPS bleu. Un circleMarker SVG/Canvas placé dans markerPane
+    // pouvait rester visuellement décalé quand la carte était tournée.
     if (!state.elevationHoverMarker) {
-      state.elevationHoverMarker = L.circleMarker([point.lat, point.lon], { radius: 8, color: '#fff', weight: 3, fillColor: '#e11d48', fillOpacity: 1, pane: 'markerPane' }).addTo(state.map);
-    } else state.elevationHoverMarker.setLatLng([point.lat, point.lon]);
-    state.elevationHoverMarker.bindTooltip(`${Math.round(Number(point.ele) || 0)} m`, { direction:'top', offset:[0,-8] }).openTooltip();
+      state.elevationHoverMarker = L.marker(ll, { icon: redMapPointIcon(), zIndexOffset: 1200, interactive: false }).addTo(state.map);
+    } else state.elevationHoverMarker.setLatLng(ll);
+    state.elevationHoverMarker.bindTooltip(`${Math.round(Number(point.ele) || 0)} m`, { direction:'top', offset:[0,-10] }).openTooltip();
   }
 
   function updateElevationChartProgress(chartKey, ratio) {
@@ -2042,6 +2055,13 @@
 
   function setFinderDetailLoading(result, source) {
     const p = getFinderProfile(result.profile || state.hikeFinder.profile);
+    // Un ancien point rouge du profil ne doit jamais rester affiché quand on
+    // sélectionne un autre parcours. Avec la carte rotative, un marker placé
+    // dans markerPane pouvait aussi sembler décalé par rapport au tracé.
+    if (state.elevationHoverMarker) {
+      try { state.map?.removeLayer(state.elevationHoverMarker); } catch (_) {}
+      state.elevationHoverMarker = null;
+    }
     const loading = '<div class="finder-detail-loading"><span class="finder-detail-spinner">↻</span><strong>Calcul du relief…</strong><small>Distance, dénivelé, difficulté et profil altimétrique.</small></div>';
     if (source === 'map') {
       ui.finderMapDetailType.textContent = `${p.icon} ${p.label}`;
@@ -2104,34 +2124,98 @@
     const panel = ui.finderMapDetail;
     if (!panel || panel.dataset.sheetBound === '1') return;
     panel.dataset.sheetBound = '1';
-    ui.finderMapDetailToggle?.addEventListener('click', e => {
-      e.stopPropagation();
-      setFinderMapDetailCollapsed(!panel.classList.contains('collapsed'));
-    });
 
-    let startY = null, startX = null, tracking = false;
-    panel.addEventListener('pointerdown', e => {
-      // Le geste vertical est reconnu depuis la poignée/l'en-tête, ou depuis le
-      // haut du contenu quand la fiche est déjà revenue complètement en haut.
-      const inTop = !!e.target.closest('.finder-detail-sheet-toggle,.finder-detail-head');
-      if (!inTop && (!panel.classList.contains('collapsed') && panel.scrollTop > 2)) return;
-      if (e.target.closest('button:not(.finder-detail-sheet-toggle),input,a,.elevation-chart')) return;
-      startY = e.clientY; startX = e.clientX; tracking = true;
-    }, { passive:true });
-    panel.addEventListener('pointerup', e => {
-      if (!tracking || startY == null) return;
-      const dy = e.clientY - startY;
-      const dx = Math.abs(e.clientX - startX);
-      tracking = false; startY = startX = null;
-      if (Math.abs(dy) < 45 || Math.abs(dy) < dx * 1.25) return;
+    const resetDragVisual = () => {
+      panel.classList.remove('sheet-dragging');
+      panel.style.removeProperty('--sheet-drag-y');
+    };
+
+    const applySwipe = (dy, dx = 0) => {
+      if (!Number.isFinite(dy) || Math.abs(dy) < 42 || Math.abs(dy) < Math.abs(dx) * 1.15) return false;
       if (dy > 0) {
         if (panel.classList.contains('collapsed')) closeFinderMapDetail();
         else setFinderMapDetailCollapsed(true);
       } else {
         setFinderMapDetailCollapsed(false);
       }
+      return true;
+    };
+
+    ui.finderMapDetailToggle?.addEventListener('click', e => {
+      e.stopPropagation();
+      setFinderMapDetailCollapsed(!panel.classList.contains('collapsed'));
+    });
+
+    // Sur Android/WebView, un glissement vertical peut être transformé en scroll
+    // et provoquer pointercancel avant pointerup. La poignée et l'en-tête utilisent
+    // donc une capture de pointeur explicite, tandis qu'un fallback touchstart/end
+    // couvre aussi le geste fait depuis le haut du contenu.
+    let pointerId = null, startY = 0, startX = 0, lastY = 0, lastX = 0;
+    let suppressTouchUntil = 0;
+    const pointerStart = e => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (e.target.closest('button:not(.finder-detail-sheet-toggle),input,a,.elevation-chart')) return;
+      const gripArea = !!e.target.closest('.finder-detail-sheet-toggle,.finder-detail-head');
+      if (!gripArea && !panel.classList.contains('collapsed') && panel.scrollTop > 2) return;
+      pointerId = e.pointerId;
+      startY = lastY = e.clientY;
+      startX = lastX = e.clientX;
+      panel.classList.add('sheet-dragging');
+      try { panel.setPointerCapture(pointerId); } catch (_) {}
+    };
+    const pointerMove = e => {
+      if (pointerId == null || e.pointerId !== pointerId) return;
+      lastY = e.clientY; lastX = e.clientX;
+      const dy = lastY - startY;
+      if (Math.abs(dy) > 4) {
+        // Retour visuel : la fiche suit légèrement le doigt sans modifier sa
+        // position finale tant que le seuil de réduction n'est pas franchi.
+        const visualY = Math.max(-36, Math.min(150, dy * 0.72));
+        panel.style.setProperty('--sheet-drag-y', `${visualY}px`);
+        if (e.cancelable) e.preventDefault();
+      }
+    };
+    const pointerFinish = e => {
+      if (pointerId == null || e.pointerId !== pointerId) return;
+      const dy = (Number.isFinite(e.clientY) ? e.clientY : lastY) - startY;
+      const dx = (Number.isFinite(e.clientX) ? e.clientX : lastX) - startX;
+      try { panel.releasePointerCapture(pointerId); } catch (_) {}
+      pointerId = null;
+      resetDragVisual();
+      suppressTouchUntil = Date.now() + 650;
+      applySwipe(dy, dx);
+    };
+    panel.addEventListener('pointerdown', pointerStart);
+    panel.addEventListener('pointermove', pointerMove, { passive:false });
+    panel.addEventListener('pointerup', pointerFinish);
+    panel.addEventListener('pointercancel', e => {
+      // Si Android annule le pointeur à cause d'un scroll, le fallback tactile
+      // ci-dessous décidera du geste au touchend.
+      if (pointerId != null && e.pointerId === pointerId) {
+        pointerId = null;
+        resetDragVisual();
+      }
+    });
+
+    let touchStartY = null, touchStartX = null;
+    panel.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1) return;
+      if (e.target.closest('button:not(.finder-detail-sheet-toggle),input,a,.elevation-chart')) return;
+      const gripArea = !!e.target.closest('.finder-detail-sheet-toggle,.finder-detail-head');
+      if (!gripArea && !panel.classList.contains('collapsed') && panel.scrollTop > 2) return;
+      touchStartY = e.touches[0].clientY;
+      touchStartX = e.touches[0].clientX;
     }, { passive:true });
-    panel.addEventListener('pointercancel', () => { tracking = false; startY = startX = null; }, { passive:true });
+    panel.addEventListener('touchend', e => {
+      if (touchStartY == null) return;
+      if (Date.now() < suppressTouchUntil) { touchStartY = touchStartX = null; return; }
+      const t = e.changedTouches?.[0];
+      const dy = t ? t.clientY - touchStartY : 0;
+      const dx = t ? t.clientX - touchStartX : 0;
+      touchStartY = touchStartX = null;
+      if (pointerId == null) applySwipe(dy, dx);
+    }, { passive:true });
+    panel.addEventListener('touchcancel', () => { touchStartY = touchStartX = null; }, { passive:true });
   }
 
   function closeFinderDetailCard() { ui.finderDetailCard?.classList.add('hidden'); }
@@ -3807,7 +3891,7 @@
     if (rp && Number.isFinite(Number(rp.lat)) && Number.isFinite(Number(rp.lon))) {
       const rll = [Number(rp.lat), Number(rp.lon)];
       if (!state.activity.routeProgressMarker) {
-        state.activity.routeProgressMarker = L.circleMarker(rll, { radius:8, color:'#fff', weight:3, fillColor:'#e11d48', fillOpacity:1, pane:'markerPane' }).addTo(state.map);
+        state.activity.routeProgressMarker = L.marker(rll, { icon:redMapPointIcon(), zIndexOffset:1200, interactive:false }).addTo(state.map);
       } else state.activity.routeProgressMarker.setLatLng(rll);
       const altTxt = hasElevation(rp.ele) ? ` · ${Math.round(Number(rp.ele))} m` : '';
       state.activity.routeProgressMarker.bindTooltip(`${Math.round(progress)} %${altTxt}`, { direction:'top', offset:[0,-8] });
@@ -4937,7 +5021,7 @@
     // de l'interface après une mise à jour de l'APK.
     const isNativeCapacitor = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
     if (isNativeCapacitor) return;
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.25', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.26', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
   }
 
   initMap();
