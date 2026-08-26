@@ -1,4 +1,4 @@
-/* Rando Radar v1.10.17 — carte, GPX, radar, planificateur, suivi d'activité et navigation point */
+/* Rando Radar v1.10.18 — GPS natif Android en arrière-plan + contrôles carte */
 (() => {
   'use strict';
 
@@ -66,6 +66,12 @@
     locationMarker: null,
     accuracyCircle: null,
     watchId: null,
+    nativeGps: {
+      active: false,
+      starting: false,
+      plugin: null,
+      lastError: null,
+    },
     centerOnNextLocation: false,
     route: null,
     routeLine: null,
@@ -321,17 +327,119 @@
     }, 650);
   }
 
-  function startLocation(center = true) {
-    if (!('geolocation' in navigator)) {
-      toast('La géolocalisation n’est pas disponible sur cet appareil.');
-      return;
+  function getNativeBackgroundGeolocation() {
+    const cap = window.Capacitor;
+    if (!cap) return null;
+    const platform = typeof cap.getPlatform === 'function' ? cap.getPlatform() : '';
+    if (platform !== 'android') return null;
+    const plugin = cap.Plugins?.BackgroundGeolocation || null;
+    if (!plugin || typeof plugin.start !== 'function' || typeof plugin.stop !== 'function') return null;
+    state.nativeGps.plugin = plugin;
+    return plugin;
+  }
+
+  function nativeLocationToWebPosition(location) {
+    if (!location) return null;
+    const latitude = Number(location.latitude);
+    const longitude = Number(location.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return {
+      __native: true,
+      coords: {
+        latitude,
+        longitude,
+        accuracy: Number.isFinite(Number(location.accuracy)) ? Number(location.accuracy) : 0,
+        altitude: Number.isFinite(Number(location.altitude)) ? Number(location.altitude) : null,
+        speed: Number.isFinite(Number(location.speed)) ? Number(location.speed) : null,
+        heading: Number.isFinite(Number(location.bearing)) ? Number(location.bearing) : null,
+      },
+      timestamp: Number.isFinite(Number(location.time)) ? Number(location.time) : Date.now()
+    };
+  }
+
+  async function startNativeActivityLocation() {
+    if (state.nativeGps.active) return true;
+    if (state.nativeGps.starting) return false;
+    const plugin = getNativeBackgroundGeolocation();
+    if (!plugin) return false;
+
+    state.nativeGps.starting = true;
+    state.nativeGps.lastError = null;
+
+    // Évite deux sources GPS simultanées pendant une activité.
+    if (state.watchId !== null && 'geolocation' in navigator) {
+      try { navigator.geolocation.clearWatch(state.watchId); } catch (_) {}
+      state.watchId = null;
     }
 
+    ui.gpsBadge.textContent = 'GPS natif : recherche…';
+    const profile = getActivityProfile();
+
+    try {
+      await plugin.start({
+        backgroundTitle: 'Rando Radar · activité en cours',
+        backgroundMessage: 'Suivi GPS actif, même lorsque l’écran est éteint.',
+        requestPermissions: true,
+        stale: false,
+        distanceFilter: profile.cycling ? 4 : 2,
+        minIntervalMs: profile.cycling ? 2000 : 3000
+      }, (location, error) => {
+        if (error) {
+          state.nativeGps.lastError = error;
+          ui.gpsBadge.textContent = 'GPS natif : erreur';
+          if (error.code === 'NOT_AUTHORIZED') {
+            toast('Autorise la localisation pour enregistrer l’activité écran éteint.');
+          }
+          return;
+        }
+        const pos = nativeLocationToWebPosition(location);
+        if (pos) updateLocation(pos);
+      });
+      state.nativeGps.active = true;
+      ui.activityMapStatus.textContent = 'GPS NATIF · écran éteint OK';
+      return true;
+    } catch (err) {
+      state.nativeGps.lastError = err;
+      state.nativeGps.active = false;
+      console.warn('GPS natif indisponible, repli GPS navigateur.', err);
+      return false;
+    } finally {
+      state.nativeGps.starting = false;
+    }
+  }
+
+  async function stopNativeActivityLocation() {
+    const plugin = state.nativeGps.plugin || getNativeBackgroundGeolocation();
+    if (!plugin || (!state.nativeGps.active && !state.nativeGps.starting)) return;
+    try { await plugin.stop(); } catch (err) { console.warn('Arrêt GPS natif impossible', err); }
+    state.nativeGps.active = false;
+    state.nativeGps.starting = false;
+  }
+
+  function startLocation(center = true, { forceWeb = false } = {}) {
     if (center && state.location) {
       state.map.setView([state.location.lat, state.location.lon], Math.max(state.map.getZoom(), 15));
       state.centerOnNextLocation = false;
     } else if (center) {
       state.centerOnNextLocation = true;
+    }
+
+    // Pendant l’enregistrement, l’APK utilise le service GPS natif Android.
+    // Il continue de recevoir des positions lorsque l’écran est verrouillé.
+    if (!forceWeb && state.activity.status === 'recording' && getNativeBackgroundGeolocation()) {
+      if (state.nativeGps.active || state.nativeGps.starting) return;
+      startNativeActivityLocation().then(ok => {
+        if (!ok) startLocation(false, { forceWeb: true });
+      });
+      return;
+    }
+
+    // Si le service natif tourne déjà, le bouton ◎ ne doit pas lancer un second GPS.
+    if (state.nativeGps.active) return;
+
+    if (!('geolocation' in navigator)) {
+      toast('La géolocalisation n’est pas disponible sur cet appareil.');
+      return;
     }
 
     if (state.watchId !== null) return;
@@ -368,7 +476,7 @@
       state.accuracyCircle.setLatLng(ll).setRadius(accuracy || 10);
     }
 
-    ui.gpsBadge.textContent = `GPS : ±${Math.round(accuracy || 0)} m`;
+    ui.gpsBadge.textContent = `${pos?.__native ? 'GPS natif' : 'GPS'} : ±${Math.round(accuracy || 0)} m`;
     if (Number.isFinite(altitude)) ui.elevationNow.textContent = `${Math.round(altitude)} m`;
 
     if (state.centerOnNextLocation) {
@@ -2814,11 +2922,13 @@
       state.activity.status = 'paused';
       state.activity.pausedAt = Date.now();
       state.activity.currentSpeed = 0;
+      stopNativeActivityLocation().finally(() => startLocation(false, { forceWeb: true }));
       toast('Activité en pause.');
     } else if (state.activity.status === 'paused') {
       state.activity.pausedMs += Date.now() - state.activity.pausedAt;
       state.activity.pausedAt = null;
       state.activity.status = 'recording';
+      startLocation(false);
       if (state.location) recordActivityPoint(state.location, true);
       toast('Enregistrement repris.');
     }
@@ -2849,6 +2959,9 @@
       closeFinishActivityModal();
       return;
     }
+
+    // Fin d’activité = arrêt immédiat du service GPS natif et de sa notification.
+    stopNativeActivityLocation();
 
     if (state.activity.status === 'paused' && state.activity.pausedAt) {
       state.activity.pausedMs += Date.now() - state.activity.pausedAt;
@@ -2969,7 +3082,9 @@
     }
 
     ui.activityMapTitle.textContent = `${activityProfile.icon} ${activityProfile.label}`;
-    ui.activityMapStatus.textContent = a.status === 'paused' ? 'EN PAUSE' : 'GPS · enregistrement';
+    ui.activityMapStatus.textContent = a.status === 'paused'
+      ? 'EN PAUSE'
+      : (state.nativeGps.active ? 'GPS NATIF · écran éteint OK' : 'GPS · enregistrement');
     ui.activityMapDistance.textContent = distance;
     ui.activityMapTime.textContent = time;
     ui.activityMapSpeed.textContent = speed;
@@ -4152,7 +4267,7 @@
     // de l'interface après une mise à jour de l'APK.
     const isNativeCapacitor = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
     if (isNativeCapacitor) return;
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.17', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.18', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
   }
 
   initMap();
