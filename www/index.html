@@ -11,7 +11,7 @@
 <link href="icon-192.png" rel="icon"/>
 <link href="icon-192.png" rel="apple-touch-icon"/>
 <link href="vendor/leaflet/leaflet.css" rel="stylesheet"/>
-<link href="styles.css?v=1.10.18" rel="stylesheet"/>
+<link href="styles.css?v=1.10.21" rel="stylesheet"/>
 </head>
 <body>
 <div id="app">
@@ -35,7 +35,17 @@
 <main><section aria-label="Carte" class="app-screen active" data-screen="map"><section aria-label="Carte" class="map-wrap" id="mapWrap">
 <div aria-label="Carte de randonnée" id="map" role="application"></div>
 <button aria-label="Fermer la carte" class="map-float-btn map-close-btn hidden" id="mapCloseBtn">✕ <span>Fermer</span></button>
-<button aria-label="Recentrer sur ma position" class="map-float-btn map-locate-btn hidden" id="mapLocateBtn">◎</button>
+<button aria-label="Recentrer sur ma position" class="map-float-btn map-locate-btn hidden" id="mapLocateBtn" title="Suivre ma position">◎</button>
+<button aria-label="Orientation automatique" aria-pressed="true" class="map-float-btn map-compass-btn hidden auto" id="mapCompassBtn" type="button" title="Orientation automatique / Nord verrouillé">
+  <span class="compass-rose" aria-hidden="true">
+    <span class="compass-cardinal compass-n">N</span>
+    <span class="compass-cardinal compass-e">E</span>
+    <span class="compass-cardinal compass-s">S</span>
+    <span class="compass-cardinal compass-o">O</span>
+    <span class="compass-needle"></span>
+  </span>
+  <span class="compass-mode" aria-hidden="true">AUTO</span>
+</button>
 <div aria-label="Contrôles de zoom" class="map-zoom-controls hidden" id="mapZoomControls">
 <button aria-label="Zoomer" id="mapZoomInBtn" type="button">+</button>
 <button aria-label="Dézoomer" id="mapZoomOutBtn" type="button">−</button>
@@ -334,7 +344,7 @@
 <strong>À propos des données</strong>
 <p>Météo et altitude : Open‑Meteo / modèles Météo‑France AROME &amp; ARPEGE / Copernicus DEM. Radar : RainViewer. Cartographie : OpenTopoMap et OpenStreetMap. Routage : OpenStreetMap/FOSSGIS OSRM et Valhalla selon le profil. Parcours autour : itinéraires OpenStreetMap via Overpass API, filtrés selon le profil choisi. Cartes hors ligne : routes, sentiers et points utiles OpenStreetMap stockés localement dans le téléphone.</p>
 <p class="tiny">Le radar affiche des observations passées, pas une prévision radar future. En montagne, vérifie aussi les vigilances et les conditions réelles avant de partir.</p>
-<p class="tiny app-version">Version chargée : <strong>1.10.18</strong></p>
+<p class="tiny app-version">Version chargée : <strong>1.10.21</strong></p>
 </section></div></section></main>
 <nav aria-label="Navigation principale" class="bottom-nav">
 <button class="bottom-nav-btn active" data-nav="map" type="button"><span>🗺️</span><small>Carte</small></button>
@@ -359,6 +369,7 @@
 </div>
 </div>
 <script src="vendor/leaflet/leaflet.js"></script>
-<script src="app.js?v=1.10.18"></script>
+<script src="vendor/leaflet-rotate/leaflet-rotate.umd.min.js"></script>
+<script src="app.js?v=1.10.21"></script>
 </body>
 </html>

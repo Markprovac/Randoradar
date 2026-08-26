@@ -158,7 +158,7 @@ body.map-fullscreen{overflow:hidden;padding-bottom:0}
 .map-close-btn span{display:none}
 .map-locate-btn{top:calc(72px + env(safe-area-inset-top));right:12px;width:48px;border-radius:50%;font-size:24px;color:var(--blue)}
 .map-wrap.fullscreen .map-close-btn,.map-wrap.fullscreen .map-locate-btn{position:fixed;z-index:10050;pointer-events:auto}
-.map-zoom-controls{position:fixed;right:12px;top:calc(132px + env(safe-area-inset-top));transform:none;z-index:10050;display:grid;gap:8px}
+.map-zoom-controls{position:fixed;right:12px;top:calc(192px + env(safe-area-inset-top));transform:none;z-index:10050;display:grid;gap:8px}
 .map-zoom-controls button{width:50px;height:50px;border:1px solid rgba(255,255,255,.9);border-radius:50%;background:rgba(255,255,255,.96);color:#17283a;font-size:28px;font-weight:700;box-shadow:0 8px 20px rgba(20,32,51,.17)}
 .map-wrap.fullscreen{position:fixed;inset:0;width:100%;height:100dvh;min-height:0;max-height:none;margin:0;z-index:9000;border:0;border-radius:0;box-shadow:none}
 .map-wrap.fullscreen .map-pills{top:calc(12px + env(safe-area-inset-top));left:12px;right:76px;padding-right:0}
@@ -1521,8 +1521,96 @@ body.pull-refresh-allowed {
 }
 
 
-/* V1.10.18 — fermeture explicite du planificateur + zoom repositionné */
+/* V1.10.19 — fermeture explicite du planificateur + zoom repositionné */
 .planner-head{position:relative;padding-right:46px}
 .planner-close-btn{position:absolute;top:0;right:0;width:40px;height:40px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--text);font-size:20px;font-weight:800;display:grid;place-items:center;box-shadow:0 3px 10px rgba(20,32,51,.08);z-index:3}
 .planner-close-btn:active{transform:scale(.96)}
 @media(max-width:900px){.planner-head{padding-right:48px}.planner-close-btn{width:42px;height:42px}}
+
+
+/* V1.10.21 — suivi GPS centré + boussole / orientation */
+.map-locate-btn.following{
+  background:rgba(235,249,246,.98);
+  border-color:rgba(16,185,129,.45);
+  box-shadow:0 0 0 3px rgba(16,185,129,.12),0 8px 22px rgba(20,32,51,.17);
+  color:#0f8f74;
+}
+.map-locate-btn:not(.following){
+  color:#607082;
+}
+.map-compass-btn{
+  top:calc(132px + env(safe-area-inset-top));
+  right:12px;
+  width:50px;
+  height:50px;
+  border-radius:50%;
+  padding:0;
+  overflow:visible;
+  display:grid;
+  place-items:center;
+  color:#17283a;
+}
+.map-wrap.fullscreen .map-compass-btn{position:fixed;z-index:10050;pointer-events:auto}
+.compass-rose{
+  position:relative;
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  display:block;
+  transform-origin:center;
+  transition:transform .18s linear;
+}
+.compass-cardinal{
+  position:absolute;
+  font-size:8px;
+  line-height:1;
+  font-weight:900;
+  color:#6a7887;
+  user-select:none;
+  pointer-events:none;
+}
+.compass-n{top:2px;left:50%;transform:translateX(-50%);color:#e24c4c}
+.compass-e{right:3px;top:50%;transform:translateY(-50%)}
+.compass-s{bottom:2px;left:50%;transform:translateX(-50%)}
+.compass-o{left:3px;top:50%;transform:translateY(-50%)}
+.compass-needle{
+  position:absolute;
+  left:50%;
+  top:10px;
+  width:0;
+  height:0;
+  border-left:4px solid transparent;
+  border-right:4px solid transparent;
+  border-bottom:12px solid #e24c4c;
+  transform:translateX(-50%);
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.18));
+}
+.compass-needle::after{
+  content:'';
+  position:absolute;
+  left:-3px;
+  top:12px;
+  width:6px;
+  height:11px;
+  background:#37485b;
+  clip-path:polygon(50% 100%,0 0,100% 0);
+}
+.compass-mode{
+  position:absolute;
+  right:-3px;
+  bottom:-3px;
+  min-width:22px;
+  padding:2px 4px;
+  border-radius:8px;
+  background:#0f8f74;
+  color:#fff;
+  border:2px solid #fff;
+  font-size:6px;
+  font-weight:950;
+  letter-spacing:.3px;
+  line-height:1.15;
+  box-shadow:0 2px 7px rgba(20,32,51,.18);
+}
+.map-compass-btn.north-locked .compass-mode{background:#37485b}
+.map-compass-btn.manual .compass-mode{background:#d18a12}
+.map-compass-btn.follow-paused .compass-mode{opacity:.68}
