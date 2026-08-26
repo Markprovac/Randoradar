@@ -1,10 +1,11 @@
-/* Rando Radar v1.10.24 — reprise native complète après fermeture/réouverture */
+/* Rando Radar v1.10.25 — radar résilient + reprise animation + fiche parcours réductible */
 (() => {
   'use strict';
 
   const ROUTER_MIN_INTERVAL = 1100;
   const SAVED_ROUTES_KEY = 'randoRadar.savedRoutes.v1';
   const ACTIVE_ACTIVITY_KEY = 'randoRadar.activeActivity.v1';
+  const RADAR_PREF_KEY = 'randoRadar.radarPrefs.v1';
   let lastActivityPersistAt = 0;
   let activityPersistWarned = false;
   const VALHALLA_ROUTE_URL = 'https://valhalla1.openstreetmap.de/route';
@@ -62,6 +63,12 @@
     radarLayer: null,
     radarEnabled: true,
     radarTimer: null,
+    radarRefreshTimer: null,
+    radarCurrentIndex: -1,
+    radarLoadedAt: 0,
+    radarLoading: false,
+    radarAnimationWanted: false,
+    radarTileErrors: 0,
     location: null,
     locationMarker: null,
     accuracyCircle: null,
@@ -163,7 +170,7 @@
     hourlyForecast: $('hourlyForecast'), refreshWeatherBtn: $('refreshWeatherBtn'), refreshWeatherIcon: $('refreshWeatherIcon'), refreshWeatherLabel: $('refreshWeatherLabel'), weatherUpdatedAt: $('weatherUpdatedAt'), toast: $('toast'),
     createRouteBtn: $('createRouteBtn'), plannerPanel: $('plannerPanel'), plannerStatus: $('plannerStatus'), plannerGpsBtn: $('plannerGpsBtn'), plannerUndoBtn: $('plannerUndoBtn'), plannerClearBtn: $('plannerClearBtn'), plannerSaveBtn: $('plannerSaveBtn'), plannerCloseBtn: $('plannerCloseBtn'),
     hikeFinderPanel: $('hikeFinderPanel'), hikeFinderStatus: $('hikeFinderStatus'), hikeFinderCloseBtn: $('hikeFinderCloseBtn'), hikeFinderGpsBtn: $('hikeFinderGpsBtn'), hikeFinderListBtn: $('hikeFinderListBtn'), hikeFinderMapResults: $('hikeFinderMapResults'), hikeFinderResultsCard: $('hikeFinderResultsCard'), hikeFinderResultsSummary: $('hikeFinderResultsSummary'), hikeFinderResultsList: $('hikeFinderResultsList'), hikeFinderNewSearchBtn: $('hikeFinderNewSearchBtn'), routesFindHikesBtn: $('routesFindHikesBtn'),
-    finderMapDetail: $('finderMapDetail'), finderMapDetailType: $('finderMapDetailType'), finderMapDetailName: $('finderMapDetailName'), finderMapDetailBody: $('finderMapDetailBody'), finderMapDetailClose: $('finderMapDetailClose'),
+    finderMapDetail: $('finderMapDetail'), finderMapDetailToggle: $('finderMapDetailToggle'), finderMapDetailType: $('finderMapDetailType'), finderMapDetailName: $('finderMapDetailName'), finderMapDetailBody: $('finderMapDetailBody'), finderMapDetailClose: $('finderMapDetailClose'),
     finderDetailCard: $('finderDetailCard'), finderDetailType: $('finderDetailType'), finderDetailName: $('finderDetailName'), finderDetailBody: $('finderDetailBody'), finderDetailClose: $('finderDetailClose'),
     routeDuration: $('routeDuration'), routeDifficulty: $('routeDifficulty'), routeLow: $('routeLow'), routeSurface: $('routeSurface'), routeElevationSection: $('routeElevationSection'), routeElevationChart: $('routeElevationChart'), routeElevationHint: $('routeElevationHint'),
     savedRoutesCard: $('savedRoutesCard'), savedRoutesList: $('savedRoutesList'),
@@ -487,28 +494,137 @@
     document.querySelectorAll('[data-basemap]').forEach(btn => btn.classList.toggle('active', btn.dataset.basemap === name));
   }
 
-  async function loadRadar() {
-    if (!navigator.onLine || state.offline?.activePackage) { ui.radarTime.textContent = 'Radar hors ligne'; return; }
+  function persistRadarPrefs() {
     try {
-      const res = await fetch('https://api.rainviewer.com/public/weather-maps.json', { cache: 'no-store' });
-      if (!res.ok) throw new Error('Radar indisponible');
-      const data = await res.json();
+      localStorage.setItem(RADAR_PREF_KEY, JSON.stringify({
+        enabled: !!state.radarEnabled,
+        animationWanted: !!state.radarAnimationWanted
+      }));
+    } catch (_) {}
+  }
+
+  function restoreRadarPrefs() {
+    try {
+      const prefs = JSON.parse(localStorage.getItem(RADAR_PREF_KEY) || 'null');
+      if (prefs && typeof prefs === 'object') {
+        if (typeof prefs.enabled === 'boolean') state.radarEnabled = prefs.enabled;
+        if (typeof prefs.animationWanted === 'boolean') state.radarAnimationWanted = prefs.animationWanted;
+      }
+    } catch (_) {}
+    ui.radarToggle.classList.toggle('active', state.radarEnabled);
+    ui.radarPanel.classList.toggle('hidden', !state.radarEnabled);
+  }
+
+  function stopRadarAnimation({ keepWanted = false } = {}) {
+    if (state.radarTimer) clearInterval(state.radarTimer);
+    state.radarTimer = null;
+    ui.radarPlay.textContent = '▶';
+    if (!keepWanted) {
+      state.radarAnimationWanted = false;
+      persistRadarPrefs();
+    }
+  }
+
+  function startRadarAnimation() {
+    if (!state.radarFrames.length || !state.radarEnabled || !navigator.onLine || state.offline?.activePackage) return false;
+    if (state.radarTimer) clearInterval(state.radarTimer);
+    state.radarAnimationWanted = true;
+    persistRadarPrefs();
+    ui.radarPlay.textContent = '⏸';
+    state.radarTimer = setInterval(() => {
+      let i = Number(ui.radarSlider.value);
+      if (!Number.isFinite(i)) i = state.radarCurrentIndex >= 0 ? state.radarCurrentIndex : state.radarFrames.length - 1;
+      i += 1;
+      if (i >= state.radarFrames.length) i = 0;
+      showRadarFrame(i);
+    }, 650);
+    return true;
+  }
+
+  function startRadarRefreshTimer() {
+    if (state.radarRefreshTimer) clearInterval(state.radarRefreshTimer);
+    state.radarRefreshTimer = setInterval(() => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine || state.offline?.activePackage || !state.radarEnabled) return;
+      loadRadar({ preserveSelection: true, silent: true }).catch(() => {});
+    }, 5 * 60 * 1000);
+  }
+
+  async function fetchRadarMetadataWithRetry() {
+    let lastErr = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 9000);
+      try {
+        const res = await fetch(`https://api.rainviewer.com/public/weather-maps.json?_=${Date.now()}`, {
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        if (!res.ok) throw new Error(`Radar HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data?.host || !(data.radar?.past || []).length) throw new Error('Aucune image radar');
+        clearTimeout(timer);
+        return data;
+      } catch (err) {
+        clearTimeout(timer);
+        lastErr = err;
+        if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 700 * (attempt + 1)));
+      }
+    }
+    throw lastErr || new Error('Radar indisponible');
+  }
+
+  async function loadRadar({ preserveSelection = false, silent = false } = {}) {
+    if (!navigator.onLine || state.offline?.activePackage) {
+      ui.radarTime.textContent = 'Radar hors ligne';
+      stopRadarAnimation({ keepWanted: true });
+      return false;
+    }
+    if (state.radarLoading) return false;
+    state.radarLoading = true;
+    const oldFrame = state.radarFrames[state.radarCurrentIndex >= 0 ? state.radarCurrentIndex : Number(ui.radarSlider.value)];
+    const oldTime = preserveSelection ? Number(oldFrame?.time) : NaN;
+    const wanted = state.radarAnimationWanted;
+    try {
+      const data = await fetchRadarMetadataWithRetry();
       state.radarHost = data.host;
       state.radarFrames = data.radar?.past || [];
-      if (!state.radarFrames.length) throw new Error('Aucune image radar');
+      state.radarLoadedAt = Date.now();
+      state.radarTileErrors = 0;
       ui.radarSlider.max = String(state.radarFrames.length - 1);
-      ui.radarSlider.value = String(state.radarFrames.length - 1);
-      showRadarFrame(state.radarFrames.length - 1);
+      let index = state.radarFrames.length - 1;
+      if (Number.isFinite(oldTime)) {
+        let bestDiff = Infinity;
+        state.radarFrames.forEach((frame, i) => {
+          const diff = Math.abs(Number(frame.time) - oldTime);
+          if (diff < bestDiff) { bestDiff = diff; index = i; }
+        });
+      }
+      showRadarFrame(index);
+      startRadarRefreshTimer();
+      if (wanted && document.visibilityState === 'visible') startRadarAnimation();
+      return true;
     } catch (err) {
-      ui.radarTime.textContent = 'Radar indisponible';
-      toast('Impossible de charger le radar pour le moment.');
+      // Si des images avaient déjà été chargées, on les garde au lieu de casser
+      // complètement le radar lors d'une micro-coupure 4G/Wi-Fi.
+      if (state.radarFrames.length) {
+        const i = Math.max(0, Math.min(state.radarCurrentIndex >= 0 ? state.radarCurrentIndex : state.radarFrames.length - 1, state.radarFrames.length - 1));
+        showRadarFrame(i);
+        if (!silent) toast('Radar temporairement indisponible · dernière animation conservée.');
+      } else {
+        ui.radarTime.textContent = 'Radar indisponible';
+        if (!silent) toast('Impossible de charger le radar pour le moment.');
+      }
+      return false;
+    } finally {
+      state.radarLoading = false;
     }
   }
 
   function showRadarFrame(index) {
-    if (!state.radarFrames.length) return;
+    if (!state.radarFrames.length || !state.radarHost) return;
     index = Math.max(0, Math.min(index, state.radarFrames.length - 1));
     const frame = state.radarFrames[index];
+    state.radarCurrentIndex = index;
     if (state.radarLayer) state.map.removeLayer(state.radarLayer);
     const url = `${state.radarHost}${frame.path}/256/{z}/{x}/{y}/2/1_0.png`;
     state.radarLayer = L.tileLayer(url, {
@@ -516,7 +632,15 @@
       maxNativeZoom: 7,
       maxZoom: 19,
       tileSize: 256,
+      updateWhenIdle: false,
+      keepBuffer: 2,
       attribution: 'Weather radar © RainViewer'
+    });
+    state.radarLayer.on('tileerror', () => {
+      state.radarTileErrors += 1;
+      if (state.radarTileErrors === 5 && navigator.onLine && document.visibilityState === 'visible') {
+        setTimeout(() => loadRadar({ preserveSelection:true, silent:true }).catch(() => {}), 1200);
+      }
     });
     if (state.radarEnabled) state.radarLayer.addTo(state.map);
     ui.radarSlider.value = String(index);
@@ -529,25 +653,39 @@
     state.radarEnabled = !state.radarEnabled;
     ui.radarToggle.classList.toggle('active', state.radarEnabled);
     ui.radarPanel.classList.toggle('hidden', !state.radarEnabled);
-    if (!state.radarLayer) return;
-    if (state.radarEnabled) state.radarLayer.addTo(state.map);
-    else state.map.removeLayer(state.radarLayer);
+    persistRadarPrefs();
+    if (!state.radarEnabled) {
+      stopRadarAnimation({ keepWanted: false });
+      if (state.radarLayer && state.map.hasLayer(state.radarLayer)) state.map.removeLayer(state.radarLayer);
+      return;
+    }
+    if (!state.radarLayer || Date.now() - state.radarLoadedAt > 2 * 60 * 1000) {
+      loadRadar({ preserveSelection:true, silent:false }).catch(() => {});
+    } else if (!state.map.hasLayer(state.radarLayer)) {
+      state.radarLayer.addTo(state.map);
+    }
   }
 
   function toggleRadarAnimation() {
     if (state.radarTimer) {
-      clearInterval(state.radarTimer);
-      state.radarTimer = null;
-      ui.radarPlay.textContent = '▶';
+      stopRadarAnimation({ keepWanted:false });
       return;
     }
-    if (!state.radarFrames.length) return;
-    ui.radarPlay.textContent = '⏸';
-    state.radarTimer = setInterval(() => {
-      let i = Number(ui.radarSlider.value) + 1;
-      if (i >= state.radarFrames.length) i = 0;
-      showRadarFrame(i);
-    }, 650);
+    if (!state.radarFrames.length) {
+      state.radarAnimationWanted = true;
+      persistRadarPrefs();
+      loadRadar({ preserveSelection:false, silent:false }).then(ok => { if (ok) startRadarAnimation(); });
+      return;
+    }
+    startRadarAnimation();
+  }
+
+  async function resumeRadarAfterForeground() {
+    if (!state.radarEnabled || !navigator.onLine || state.offline?.activePackage) return;
+    const stale = !state.radarFrames.length || Date.now() - state.radarLoadedAt > 90 * 1000;
+    if (stale) await loadRadar({ preserveSelection:true, silent:true });
+    else if (state.radarLayer && !state.map.hasLayer(state.radarLayer)) state.radarLayer.addTo(state.map);
+    if (state.radarAnimationWanted) startRadarAnimation();
   }
 
   function getNativeActivityTracker() {
@@ -803,6 +941,9 @@
     }
     state.activity.line.setLatLngs(clean.map(p => [p.lat, p.lon]));
     updateActivityUI();
+    // Après une réouverture, le dernier point natif doit également remettre à jour
+    // l'avancement du GPX/profil altimétrique, pas seulement la trace rose.
+    if (state.activity.followRoute && state.location) updateRouteFollowGuide(state.location);
     persistActivitySnapshot();
   }
 
@@ -1907,6 +2048,7 @@
       ui.finderMapDetailName.textContent = result.name;
       ui.finderMapDetailBody.innerHTML = loading;
       ui.finderMapDetail.classList.remove('hidden');
+      setFinderMapDetailCollapsed(false);
       ui.hikeFinderPanel.classList.add('hidden');
     } else {
       ui.finderDetailType.textContent = `${p.icon} ${p.label}`;
@@ -1942,9 +2084,54 @@
     }
   }
 
+  function setFinderMapDetailCollapsed(collapsed) {
+    if (!ui.finderMapDetail) return;
+    ui.finderMapDetail.classList.toggle('collapsed', !!collapsed);
+    if (ui.finderMapDetailToggle) {
+      ui.finderMapDetailToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      ui.finderMapDetailToggle.setAttribute('aria-label', collapsed ? 'Agrandir les détails du parcours' : 'Réduire les détails du parcours');
+    }
+    if (!collapsed) ui.finderMapDetail.scrollTop = 0;
+  }
+
   function closeFinderMapDetail() {
     ui.finderMapDetail?.classList.add('hidden');
+    ui.finderMapDetail?.classList.remove('collapsed');
     if (state.hikeFinder.active) ui.hikeFinderPanel?.classList.remove('hidden');
+  }
+
+  function bindFinderMapDetailSheet() {
+    const panel = ui.finderMapDetail;
+    if (!panel || panel.dataset.sheetBound === '1') return;
+    panel.dataset.sheetBound = '1';
+    ui.finderMapDetailToggle?.addEventListener('click', e => {
+      e.stopPropagation();
+      setFinderMapDetailCollapsed(!panel.classList.contains('collapsed'));
+    });
+
+    let startY = null, startX = null, tracking = false;
+    panel.addEventListener('pointerdown', e => {
+      // Le geste vertical est reconnu depuis la poignée/l'en-tête, ou depuis le
+      // haut du contenu quand la fiche est déjà revenue complètement en haut.
+      const inTop = !!e.target.closest('.finder-detail-sheet-toggle,.finder-detail-head');
+      if (!inTop && (!panel.classList.contains('collapsed') && panel.scrollTop > 2)) return;
+      if (e.target.closest('button:not(.finder-detail-sheet-toggle),input,a,.elevation-chart')) return;
+      startY = e.clientY; startX = e.clientX; tracking = true;
+    }, { passive:true });
+    panel.addEventListener('pointerup', e => {
+      if (!tracking || startY == null) return;
+      const dy = e.clientY - startY;
+      const dx = Math.abs(e.clientX - startX);
+      tracking = false; startY = startX = null;
+      if (Math.abs(dy) < 45 || Math.abs(dy) < dx * 1.25) return;
+      if (dy > 0) {
+        if (panel.classList.contains('collapsed')) closeFinderMapDetail();
+        else setFinderMapDetailCollapsed(true);
+      } else {
+        setFinderMapDetailCollapsed(false);
+      }
+    }, { passive:true });
+    panel.addEventListener('pointercancel', () => { tracking = false; startY = startX = null; }, { passive:true });
   }
 
   function closeFinderDetailCard() { ui.finderDetailCard?.classList.add('hidden'); }
@@ -4575,6 +4762,7 @@
     ui.hikeFinderNewSearchBtn?.addEventListener('click', startHikeFinder);
     ui.hikeFinderCloseBtn?.addEventListener('click', () => { stopHikeFinder(true); exitMapFullscreen(); });
     ui.finderMapDetailClose?.addEventListener('click', closeFinderMapDetail);
+    bindFinderMapDetailSheet();
     ui.finderDetailClose?.addEventListener('click', closeFinderDetailCard);
     ui.finderMapDetail?.querySelector('.finder-detail-actions')?.addEventListener('click', handleFinderDetailAction);
     ui.finderDetailCard?.querySelector('.finder-detail-card-actions')?.addEventListener('click', handleFinderDetailAction);
@@ -4718,18 +4906,28 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
         persistActivitySnapshot(true);
+        // Les timers JS sont suspendus en arrière-plan. On mémorise l'intention
+        // de lecture pour redémarrer proprement l'animation au retour.
+        if (state.radarTimer) state.radarAnimationWanted = true;
+        stopRadarAnimation({ keepWanted:true });
+        persistRadarPrefs();
       } else {
         // Android peut suspendre ou recréer la WebView pendant que le service GPS
         // continue. À chaque retour au premier plan on reconstruit donc l'UI depuis
         // le service natif et son fichier de trace.
         recoverNativeActivityState({ reason:'visibility', allowRestart:true }).catch(() => {});
+        resumeRadarAfterForeground().catch(() => {});
       }
     });
     window.addEventListener('pageshow', () => {
       recoverNativeActivityState({ reason:'pageshow', allowRestart:true }).catch(() => {});
+      resumeRadarAfterForeground().catch(() => {});
     });
     window.addEventListener('focus', () => {
-      if (document.visibilityState === 'visible') recoverNativeActivityState({ reason:'focus', allowRestart:true }).catch(() => {});
+      if (document.visibilityState === 'visible') {
+        recoverNativeActivityState({ reason:'focus', allowRestart:true }).catch(() => {});
+        resumeRadarAfterForeground().catch(() => {});
+      }
     });
   }
 
@@ -4739,7 +4937,7 @@
     // de l'interface après une mise à jour de l'APK.
     const isNativeCapacitor = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
     if (isNativeCapacitor) return;
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.24', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.25', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
   }
 
   initMap();
@@ -4755,7 +4953,8 @@
   // que pagehide/localStorage ait eu le temps de sauvegarder la dernière seconde.
   setTimeout(() => recoverNativeActivityState({ reason:'cold-start-1', allowRestart:true }).catch(() => {}), 250);
   setTimeout(() => recoverNativeActivityState({ reason:'cold-start-2', allowRestart:true }).catch(() => {}), 1400);
+  restoreRadarPrefs();
   registerSW();
-  if (navigator.onLine) loadRadar(); else setTimeout(handleOfflineNetworkLoss, 250);
+  if (navigator.onLine && state.radarEnabled) loadRadar({ preserveSelection:false, silent:true }); else setTimeout(handleOfflineNetworkLoss, 250);
   setTimeout(() => startLocation(true), 400);
 })();

@@ -1614,3 +1614,84 @@ body.pull-refresh-allowed {
 .map-compass-btn.north-locked .compass-mode{background:#37485b}
 .map-compass-btn.manual .compass-mode{background:#d18a12}
 .map-compass-btn.follow-paused .compass-mode{opacity:.68}
+
+
+/* =========================================================
+   V1.10.25 — radar résilient + fiche parcours bottom sheet
+   ========================================================= */
+/* Le radar reste accessible pendant une activité. Il se place au-dessus du
+   panneau d'activité compact, au lieu d'être masqué. */
+.map-wrap.fullscreen.activity-active .radar-panel{
+  display:block !important;
+  left:12px;
+  right:76px;
+  top:auto;
+  bottom:calc(148px + env(safe-area-inset-bottom));
+  z-index:10025;
+}
+.map-wrap.fullscreen.activity-active:not(.activity-panel-collapsed) .radar-panel{
+  bottom:auto;
+  top:calc(102px + env(safe-area-inset-top));
+}
+.map-wrap.fullscreen.activity-active .radar-panel.hidden{display:none !important}
+
+/* La fiche parcours passe volontairement AU-DESSUS des boutons +/- : son bouton
+   fermer et sa poignée restent donc toujours utilisables. */
+.finder-map-detail{
+  z-index:10120;
+  padding-top:28px;
+  transition:max-height .22s ease, transform .22s ease, opacity .18s ease;
+}
+.finder-detail-sheet-toggle{
+  position:absolute;
+  top:4px;
+  left:50%;
+  transform:translateX(-50%);
+  width:64px;
+  height:24px;
+  border:0;
+  background:transparent;
+  z-index:4;
+  padding:0;
+}
+.finder-detail-sheet-toggle span{
+  display:block;
+  width:38px;
+  height:5px;
+  margin:6px auto 0;
+  border-radius:999px;
+  background:#cfd8d4;
+}
+.finder-map-detail .finder-detail-head{
+  position:sticky;
+  top:-16px;
+  z-index:3;
+  background:rgba(255,255,255,.98);
+  padding-top:4px;
+  padding-bottom:5px;
+}
+.finder-map-detail.collapsed{
+  max-height:92px !important;
+  overflow:hidden !important;
+  padding-bottom:10px;
+}
+.finder-map-detail.collapsed .finder-detail-body,
+.finder-map-detail.collapsed .finder-detail-actions{
+  display:none !important;
+}
+.finder-map-detail.collapsed .finder-detail-head{
+  position:static;
+  padding-bottom:0;
+}
+@media(max-width:520px){
+  .map-wrap.fullscreen.activity-active .radar-panel{
+    left:8px;
+    right:72px;
+    bottom:calc(140px + env(safe-area-inset-bottom));
+  }
+  .map-wrap.fullscreen.activity-active:not(.activity-panel-collapsed) .radar-panel{
+    top:calc(100px + env(safe-area-inset-top));
+    bottom:auto;
+  }
+  .finder-map-detail{z-index:10120;padding-top:27px}
+}

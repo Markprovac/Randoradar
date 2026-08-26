@@ -11,7 +11,7 @@
 <link href="icon-192.png" rel="icon"/>
 <link href="icon-192.png" rel="apple-touch-icon"/>
 <link href="vendor/leaflet/leaflet.css" rel="stylesheet"/>
-<link href="styles.css?v=1.10.24" rel="stylesheet"/>
+<link href="styles.css?v=1.10.25" rel="stylesheet"/>
 </head>
 <body>
 <div id="app">
@@ -118,6 +118,7 @@
 <div class="hike-finder-map-results" id="hikeFinderMapResults"></div>
 </div>
 <div class="finder-map-detail hidden" id="finderMapDetail">
+<button class="finder-detail-sheet-toggle" id="finderMapDetailToggle" type="button" aria-label="Réduire les détails du parcours" aria-expanded="true"><span></span></button>
 <div class="finder-detail-head"><div><span class="finder-detail-kicker" id="finderMapDetailType">Parcours</span><strong id="finderMapDetailName">—</strong></div><button id="finderMapDetailClose" type="button" aria-label="Fermer les détails">✕</button></div>
 <div id="finderMapDetailBody" class="finder-detail-body"><div class="finder-detail-loading">Sélectionne un tracé pour afficher ses informations.</div></div>
 <div class="finder-detail-actions">
@@ -344,7 +345,7 @@
 <strong>À propos des données</strong>
 <p>Météo et altitude : Open‑Meteo / modèles Météo‑France AROME &amp; ARPEGE / Copernicus DEM. Radar : RainViewer. Cartographie : OpenTopoMap et OpenStreetMap. Routage : OpenStreetMap/FOSSGIS OSRM et Valhalla selon le profil. Parcours autour : itinéraires OpenStreetMap via Overpass API, filtrés selon le profil choisi. Cartes hors ligne : routes, sentiers et points utiles OpenStreetMap stockés localement dans le téléphone.</p>
 <p class="tiny">Le radar affiche des observations passées, pas une prévision radar future. En montagne, vérifie aussi les vigilances et les conditions réelles avant de partir.</p>
-<p class="tiny app-version">Version chargée : <strong>1.10.24</strong></p>
+<p class="tiny app-version">Version chargée : <strong>1.10.25</strong></p>
 </section></div></section></main>
 <nav aria-label="Navigation principale" class="bottom-nav">
 <button class="bottom-nav-btn active" data-nav="map" type="button"><span>🗺️</span><small>Carte</small></button>
@@ -370,6 +371,6 @@
 </div>
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="vendor/leaflet-rotate/leaflet-rotate.umd.min.js"></script>
-<script src="app.js?v=1.10.24"></script>
+<script src="app.js?v=1.10.25"></script>
 </body>
 </html>
