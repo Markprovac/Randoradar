@@ -1,4 +1,4 @@
-/* Rando Radar v1.10.22 — suivi GPS centré robuste + boussole/orientation */
+/* Rando Radar v1.10.23 — caméra GPS alimentée directement par le GPS natif */
 (() => {
   'use strict';
 
@@ -436,8 +436,9 @@
     const ll = [state.location.lat, state.location.lon];
     const currentZoom = state.map.getZoom();
     const zoom = raiseZoom ? Math.max(currentZoom, 15) : currentZoom;
-    if (zoom !== currentZoom) state.map.setView(ll, zoom, { animate: false });
-    else state.map.panTo(ll, { animate: false, noMoveStart: true });
+    // setView est plus fiable que panTo avec leaflet-rotate : le point GPS
+    // reste réellement au centre du viewport même lorsque la carte pivote.
+    state.map.setView(ll, zoom, { animate: false });
     return true;
   }
 
@@ -574,7 +575,7 @@
       if (document.visibilityState === 'visible' && ['recording','paused','finished'].includes(state.activity.status)) {
         syncNativeActivityTrack().catch(() => {});
       }
-    }, 4000);
+    }, 1500);
   }
 
   async function startNativeActivityLocation({ clear = false } = {}) {
@@ -648,6 +649,54 @@
     };
   }
 
+  function applyNativePointToLiveMap(point) {
+    if (!point || !state.map) return;
+    const timestamp = Number(point.timestamp) || Date.now();
+    const existingTs = Number(state.location?.timestamp) || 0;
+    // Le GPS natif est la référence pendant l'activité. On ignore seulement un
+    // point manifestement plus ancien que la dernière position déjà affichée.
+    if (existingTs && timestamp + 1500 < existingTs) return;
+
+    state.location = {
+      lat: point.lat,
+      lon: point.lon,
+      accuracy: Number.isFinite(point.accuracy) ? point.accuracy : null,
+      altitude: Number.isFinite(point.ele) ? point.ele : null,
+      speed: Number.isFinite(point.speedKmh) ? point.speedKmh : null,
+      heading: Number.isFinite(point.bearing) ? normalizeHeading(point.bearing) : null,
+      timestamp
+    };
+    if (state.location.heading != null) state.navigation.gpsHeading = state.location.heading;
+
+    const ll = [point.lat, point.lon];
+    if (!state.locationMarker) {
+      const icon = L.divIcon({ className: '', html: '<div class="user-dot"></div>', iconSize: [18,18], iconAnchor:[9,9] });
+      state.locationMarker = L.marker(ll, { icon, zIndexOffset: 1000 }).addTo(state.map);
+      state.accuracyCircle = L.circle(ll, {
+        radius: Number.isFinite(point.accuracy) ? point.accuracy : 10,
+        weight: 1, fillOpacity: .07, opacity: .35
+      }).addTo(state.map);
+    } else {
+      state.locationMarker.setLatLng(ll);
+      state.accuracyCircle?.setLatLng(ll).setRadius(Number.isFinite(point.accuracy) ? point.accuracy : 10);
+    }
+
+    ui.gpsBadge.textContent = Number.isFinite(point.accuracy)
+      ? `GPS natif : ±${Math.round(point.accuracy)} m`
+      : 'GPS natif : actif';
+    if (Number.isFinite(point.ele)) ui.elevationNow.textContent = `${Math.round(point.ele)} m`;
+
+    // IMPORTANT : la caméra suit maintenant exactement la même position native
+    // que celle enregistrée dans la trace. setView est volontairement utilisé
+    // plutôt que panTo, plus fiable avec la carte rotative Leaflet.
+    if (state.mapFollowGps || state.centerOnNextLocation) {
+      centerMapOnLocation(state.centerOnNextLocation);
+      state.centerOnNextLocation = false;
+    }
+    applyAutomaticHeading();
+    updateNavigationControls();
+  }
+
   function replaceActivityTrackFromNative(points) {
     if (!Array.isArray(points)) return;
     const clean = points.map(nativePointToActivityPoint).filter(Boolean).sort((a,b) => a.timestamp - b.timestamp);
@@ -657,6 +706,7 @@
     state.activity.distanceKm = clean.length > 1 ? routeDistance(clean) : 0;
     const last = clean[clean.length - 1];
     const prev = clean.length > 1 ? clean[clean.length - 2] : null;
+    applyNativePointToLiveMap(last);
     if (Number.isFinite(last.speedKmh)) {
       state.activity.currentSpeed = last.speedKmh;
     } else if (prev) {
@@ -731,6 +781,13 @@
 
   function updateLocation(pos) {
     const { latitude, longitude, accuracy, altitude, speed, heading } = pos.coords;
+    // Pendant une activité native, le service Android est la source de vérité
+    // pour le point bleu et la caméra. Le GPS Web reste un simple repli.
+    if (state.nativeGps.active && state.activity.nativeSessionId) {
+      const webTs = Number(pos.timestamp || Date.now());
+      const liveTs = Number(state.location?.timestamp || 0);
+      if (liveTs && webTs <= liveTs + 2000) return;
+    }
     state.location = {
       lat: latitude,
       lon: longitude,
@@ -4596,7 +4653,7 @@
     // de l'interface après une mise à jour de l'APK.
     const isNativeCapacitor = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
     if (isNativeCapacitor) return;
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.22', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.23', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
   }
 
   initMap();
