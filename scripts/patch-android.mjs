@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION_NAME = '1.10.20';
-const VERSION_CODE = 11020;
+const VERSION_NAME = '1.10.24';
+const VERSION_CODE = 11024;
 const PACKAGE_NAME = 'com.randoradar.app';
 const javaDir = `android/app/src/main/java/${PACKAGE_NAME.replaceAll('.', '/')}`;
 
@@ -141,9 +141,17 @@ public class NativeLocationService extends Service {
             minDistanceM = Math.max(0f, intent.getFloatExtra("minDistanceM", 2f));
             maxAccuracyM = Math.max(10f, intent.getFloatExtra("maxAccuracyM", 40f));
             maxSpeedKmh = Math.max(20f, intent.getFloatExtra("maxSpeedKmh", 160f));
+            long requestedStartedAt = intent.getLongExtra("startedAt", 0L);
+            long startedAt = requestedStartedAt > 0L ? requestedStartedAt : prefs.getLong("startedAt", System.currentTimeMillis());
+            String mode = intent.getStringExtra("mode");
+            String activityName = intent.getStringExtra("activityName");
             prefs.edit()
                 .putBoolean("active", true)
                 .putString("sessionId", sessionId)
+                .putLong("startedAt", startedAt)
+                .putString("mode", mode == null ? prefs.getString("mode", "hike") : mode)
+                .putString("activityName", activityName == null ? prefs.getString("activityName", "") : activityName)
+                .putLong("lastServiceStartAt", System.currentTimeMillis())
                 .putLong("minTimeMs", minTimeMs)
                 .putFloat("minDistanceM", minDistanceM)
                 .putFloat("maxAccuracyM", maxAccuracyM)
@@ -371,6 +379,20 @@ public class RandoRadarTrackerPlugin extends Plugin {
         double minDistanceM = call.getDouble("minDistanceM", 2.0);
         double maxAccuracyM = call.getDouble("maxAccuracyM", 40.0);
         double maxSpeedKmh = call.getDouble("maxSpeedKmh", 160.0);
+        long startedAt = 0L;
+        Double startedAtRaw = call.getDouble("startedAt");
+        if (startedAtRaw != null && startedAtRaw > 0) startedAt = startedAtRaw.longValue();
+        String mode = call.getString("mode", "hike");
+        String activityName = call.getString("activityName", "");
+
+        getContext().getSharedPreferences("randoradar_native_tracker", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("active", true)
+            .putString("sessionId", sessionId)
+            .putLong("startedAt", startedAt > 0 ? startedAt : System.currentTimeMillis())
+            .putString("mode", mode == null ? "hike" : mode)
+            .putString("activityName", activityName == null ? "" : activityName)
+            .apply();
 
         Intent service = new Intent(getContext(), NativeLocationService.class);
         service.setAction(NativeLocationService.ACTION_START);
@@ -379,6 +401,9 @@ public class RandoRadarTrackerPlugin extends Plugin {
         service.putExtra("minDistanceM", (float) minDistanceM);
         service.putExtra("maxAccuracyM", (float) maxAccuracyM);
         service.putExtra("maxSpeedKmh", (float) maxSpeedKmh);
+        service.putExtra("startedAt", startedAt);
+        service.putExtra("mode", mode);
+        service.putExtra("activityName", activityName);
         ContextCompat.startForegroundService(getContext(), service);
 
         JSObject ret = new JSObject();
@@ -394,6 +419,23 @@ public class RandoRadarTrackerPlugin extends Plugin {
         Intent service = new Intent(getContext(), NativeLocationService.class);
         getContext().stopService(service);
         call.resolve();
+    }
+
+    @PluginMethod
+    public void getStatus(PluginCall call) {
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("randoradar_native_tracker", Context.MODE_PRIVATE);
+        String sessionId = safeSession(prefs.getString("sessionId", ""));
+        JSObject ret = new JSObject();
+        ret.put("active", prefs.getBoolean("active", false));
+        ret.put("sessionId", sessionId);
+        ret.put("startedAt", prefs.getLong("startedAt", 0L));
+        ret.put("mode", prefs.getString("mode", "hike"));
+        ret.put("activityName", prefs.getString("activityName", ""));
+        ret.put("lastServiceStartAt", prefs.getLong("lastServiceStartAt", 0L));
+        File file = trackFile(sessionId);
+        ret.put("trackExists", !sessionId.isEmpty() && file.exists() && file.length() > 0);
+        ret.put("trackBytes", file.exists() ? file.length() : 0L);
+        call.resolve(ret);
     }
 
     @PluginMethod
