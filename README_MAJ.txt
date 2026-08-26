@@ -1,11 +1,12 @@
-Rando Radar 1.10.22 — correction du suivi carte GPS
+Rando Radar 1.10.23
 
-Correction : la rotation automatique de la carte pouvait déclencher un faux dragstart Leaflet et désactiver le recentrage GPS sans geste utilisateur.
+Correction du suivi visuel GPS :
+- pendant une activité, le point bleu et la caméra utilisent directement le dernier point du GPS natif Android ;
+- synchronisation de la position native visible toutes les 1,5 s ;
+- recentrage avec setView, plus fiable avec la rotation Leaflet ;
+- le GPS Web ne peut plus écraser une position native plus récente.
 
-Nouveau comportement :
-- le point GPS reste au centre tant que l’utilisateur ne fait pas réellement glisser la carte ;
-- les rotations automatiques et mises à jour de cap ne coupent plus le suivi ;
-- un vrai déplacement manuel de la carte suspend le recentrage ;
-- le bouton ◎ recentre immédiatement et réactive le suivi ;
-- la boussole/orientation de la 1.10.21 est conservée ;
-- le GPS natif Fused de la 1.10.20 est conservé.
+Comportement :
+- suivi activé : point GPS centré en permanence ;
+- déplacement manuel de la carte : suivi suspendu ;
+- bouton ◎ : recentrage + reprise du suivi.
