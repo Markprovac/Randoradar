@@ -1,4 +1,4 @@
-/* Rando Radar v1.10.21 — GPS natif + suivi carte centré + boussole/orientation */
+/* Rando Radar v1.10.22 — suivi GPS centré robuste + boussole/orientation */
 (() => {
   'use strict';
 
@@ -84,7 +84,9 @@
       deviceHeadingAt: 0,
       gpsHeading: null,
       orientationListening: false,
-      orientationPermission: 'unknown'
+      orientationPermission: 'unknown',
+      mapGestureActive: false,
+      mapGestureAt: 0
     },
     route: null,
     routeLine: null,
@@ -236,10 +238,36 @@
 
     state.map.on('click', handleMapClick);
 
-    // Dès que l'utilisateur fait glisser la carte, on arrête de la recentrer.
-    // Le GPS continue bien sûr d'enregistrer ; ◎ réactive le suivi de carte.
+    // Le plugin de rotation peut déclencher des événements Leaflet proches d'un drag
+    // lors d'une rotation AUTOMATIQUE. On ne coupe donc le suivi GPS que si un
+    // vrai geste du doigt est en cours sur la carte. Cela évite que le point bleu
+    // parte hors écran alors que l'utilisateur n'a jamais déplacé la carte.
+    const mapContainer = state.map.getContainer();
+    const markMapGestureStart = () => {
+      state.navigation.mapGestureActive = true;
+      state.navigation.mapGestureAt = Date.now();
+    };
+    const markMapGestureEnd = () => {
+      state.navigation.mapGestureActive = false;
+    };
+    if (window.PointerEvent) {
+      mapContainer.addEventListener('pointerdown', markMapGestureStart, { passive: true });
+      window.addEventListener('pointerup', markMapGestureEnd, { passive: true });
+      window.addEventListener('pointercancel', markMapGestureEnd, { passive: true });
+    } else {
+      mapContainer.addEventListener('touchstart', markMapGestureStart, { passive: true });
+      window.addEventListener('touchend', markMapGestureEnd, { passive: true });
+      window.addEventListener('touchcancel', markMapGestureEnd, { passive: true });
+      mapContainer.addEventListener('mousedown', markMapGestureStart, { passive: true });
+      window.addEventListener('mouseup', markMapGestureEnd, { passive: true });
+    }
+
+    // Uniquement un glissement réellement initié par l'utilisateur suspend le suivi.
+    // ◎ recentre immédiatement et réactive ensuite le suivi automatique.
     state.map.on('dragstart', () => {
-      if (!state.mapFollowGps) return;
+      const userInitiated = state.navigation.mapGestureActive ||
+        (Date.now() - Number(state.navigation.mapGestureAt || 0) < 500);
+      if (!userInitiated || !state.mapFollowGps) return;
       state.mapFollowGps = false;
       stopAutomaticHeading();
       updateNavigationControls();
@@ -405,8 +433,11 @@
 
   function centerMapOnLocation(raiseZoom = false) {
     if (!state.location || !state.map) return false;
-    const zoom = raiseZoom ? Math.max(state.map.getZoom(), 15) : state.map.getZoom();
-    state.map.setView([state.location.lat, state.location.lon], zoom, { animate: false });
+    const ll = [state.location.lat, state.location.lon];
+    const currentZoom = state.map.getZoom();
+    const zoom = raiseZoom ? Math.max(currentZoom, 15) : currentZoom;
+    if (zoom !== currentZoom) state.map.setView(ll, zoom, { animate: false });
+    else state.map.panTo(ll, { animate: false, noMoveStart: true });
     return true;
   }
 
@@ -725,8 +756,7 @@
     if (Number.isFinite(altitude)) ui.elevationNow.textContent = `${Math.round(altitude)} m`;
 
     if (state.mapFollowGps || state.centerOnNextLocation) {
-      const zoom = state.centerOnNextLocation ? Math.max(state.map.getZoom(), 15) : state.map.getZoom();
-      state.map.setView(ll, zoom, { animate: false });
+      centerMapOnLocation(state.centerOnNextLocation);
       state.centerOnNextLocation = false;
     }
     applyAutomaticHeading();
@@ -4566,7 +4596,7 @@
     // de l'interface après une mise à jour de l'APK.
     const isNativeCapacitor = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
     if (isNativeCapacitor) return;
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.21', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.22', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
   }
 
   initMap();
