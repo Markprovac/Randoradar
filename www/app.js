@@ -72,7 +72,9 @@
       plugin: null,
       lastError: null,
       syncTimer: null,
-      lastSyncedTimestamp: 0
+      lastSyncedTimestamp: 0,
+      pointCount: 0,
+      batteryUnrestricted: false
     },
     centerOnNextLocation: false,
     route: null,
@@ -380,6 +382,7 @@
       });
       state.nativeGps.active = true;
       state.nativeGps.lastSyncedTimestamp = 0;
+      state.nativeGps.pointCount = 0;
       ui.gpsBadge.textContent = 'GPS natif : actif';
       ui.activityMapStatus.textContent = 'GPS NATIF · trace enregistrée écran éteint';
       startNativeSyncTimer();
@@ -461,6 +464,8 @@
     try {
       const result = await plugin.getPoints({ sessionId });
       const points = Array.isArray(result?.points) ? result.points : [];
+      state.nativeGps.pointCount = points.length;
+      state.nativeGps.batteryUnrestricted = result?.batteryUnrestricted === true;
       if (!points.length) return false;
       const newest = Number(points[points.length - 1]?.timestamp ?? points[points.length - 1]?.time) || 0;
       if (!force && newest && newest <= state.nativeGps.lastSyncedTimestamp) {
@@ -3167,7 +3172,9 @@
       ? 'TERMINÉE'
       : a.status === 'paused'
         ? 'EN PAUSE'
-        : (state.nativeGps.active ? 'GPS NATIF · écran éteint OK' : 'GPS · enregistrement');
+        : (state.nativeGps.active
+            ? `GPS NATIF · ${state.nativeGps.pointCount || a.points.length || 0} pts · écran éteint`
+            : 'GPS · enregistrement');
     ui.activityMapDistance.textContent = distance;
     ui.activityMapTime.textContent = time;
     ui.activityMapSpeed.textContent = speed;
