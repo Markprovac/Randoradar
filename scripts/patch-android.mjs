@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION_NAME = '1.10.25';
-const VERSION_CODE = 11024;
+const VERSION_NAME = '1.10.26';
+const VERSION_CODE = 11026;
 const PACKAGE_NAME = 'com.randoradar.app';
 const javaDir = `android/app/src/main/java/${PACKAGE_NAME.replaceAll('.', '/')}`;
 
