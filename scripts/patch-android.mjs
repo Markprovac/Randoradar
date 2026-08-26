@@ -266,6 +266,7 @@ public class NativeLocationService extends Service {
             point.put("timestamp", timestamp);
             point.put("altitude", location.hasAltitude() ? location.getAltitude() : JSONObject.NULL);
             point.put("speedKmh", location.hasSpeed() && location.getSpeed() >= 0 ? location.getSpeed() * 3.6d : computedKmh);
+            point.put("bearing", location.hasBearing() ? location.getBearing() : JSONObject.NULL);
             point.put("provider", "fused");
             appendLine(point.toString());
             lastLat = lat;
