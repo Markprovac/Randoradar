@@ -1,4 +1,4 @@
-/* Rando Radar v1.10.18 — GPS natif Android en arrière-plan + contrôles carte */
+/* Rando Radar v1.10.19 — enregistreur GPS natif persistant écran éteint */
 (() => {
   'use strict';
 
@@ -21,10 +21,10 @@
     mtb:    { label: 'VTT', icon: '🚵', relationRoutes: ['mtb','bicycle'], transportMode: 'bike' }
   };
   const ACTIVITY_PROFILES = {
-    hike:   { label: 'Randonnée', icon: '🥾', cycling: false, navSpeed: 4,  maxPlausible: 35,  offRouteM: 80 },
-    road:   { label: 'Vélo route', icon: '🚴', cycling: true,  navSpeed: 20, maxPlausible: 120, offRouteM: 120 },
-    gravel: { label: 'Gravel',     icon: '🚲', cycling: true,  navSpeed: 17, maxPlausible: 120, offRouteM: 110 },
-    mtb:    { label: 'VTT',        icon: '🚵', cycling: true,  navSpeed: 12, maxPlausible: 120, offRouteM: 100 }
+    hike:   { label: 'Randonnée', icon: '🥾', cycling: false, navSpeed: 4,  maxPlausible: 35,  nativeAccuracy: 30, nativeMaxSpeed: 160, offRouteM: 80 },
+    road:   { label: 'Vélo route', icon: '🚴', cycling: true,  navSpeed: 20, maxPlausible: 120, nativeAccuracy: 40, nativeMaxSpeed: 160, offRouteM: 120 },
+    gravel: { label: 'Gravel',     icon: '🚲', cycling: true,  navSpeed: 17, maxPlausible: 120, nativeAccuracy: 40, nativeMaxSpeed: 160, offRouteM: 110 },
+    mtb:    { label: 'VTT',        icon: '🚵', cycling: true,  navSpeed: 12, maxPlausible: 120, nativeAccuracy: 40, nativeMaxSpeed: 160, offRouteM: 100 }
   };
   const PLANNER_PROFILES = {
     hike: {
@@ -71,6 +71,8 @@
       starting: false,
       plugin: null,
       lastError: null,
+      syncTimer: null,
+      lastSyncedTimestamp: 0
     },
     centerOnNextLocation: false,
     route: null,
@@ -124,6 +126,7 @@
       line: null,
       timer: null,
       name: '',
+      nativeSessionId: '',
       targetSelect: false,
       target: null,
       targetMarker: null,
@@ -327,81 +330,65 @@
     }, 650);
   }
 
-  function getNativeBackgroundGeolocation() {
+  function getNativeActivityTracker() {
     const cap = window.Capacitor;
     if (!cap) return null;
     const platform = typeof cap.getPlatform === 'function' ? cap.getPlatform() : '';
     if (platform !== 'android') return null;
-    const plugin = cap.Plugins?.BackgroundGeolocation || null;
-    if (!plugin || typeof plugin.start !== 'function' || typeof plugin.stop !== 'function') return null;
+    const plugin = cap.Plugins?.RandoRadarTracker || null;
+    if (!plugin || typeof plugin.startTracking !== 'function' || typeof plugin.getPoints !== 'function') return null;
     state.nativeGps.plugin = plugin;
     return plugin;
   }
 
-  function nativeLocationToWebPosition(location) {
-    if (!location) return null;
-    const latitude = Number(location.latitude);
-    const longitude = Number(location.longitude);
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-    return {
-      __native: true,
-      coords: {
-        latitude,
-        longitude,
-        accuracy: Number.isFinite(Number(location.accuracy)) ? Number(location.accuracy) : 0,
-        altitude: Number.isFinite(Number(location.altitude)) ? Number(location.altitude) : null,
-        speed: Number.isFinite(Number(location.speed)) ? Number(location.speed) : null,
-        heading: Number.isFinite(Number(location.bearing)) ? Number(location.bearing) : null,
-      },
-      timestamp: Number.isFinite(Number(location.time)) ? Number(location.time) : Date.now()
-    };
+  function nativeActivitySessionId() {
+    return state.activity.nativeSessionId || '';
   }
 
-  async function startNativeActivityLocation() {
-    if (state.nativeGps.active) return true;
+  function makeNativeActivitySessionId() {
+    return `rr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function startNativeSyncTimer() {
+    clearInterval(state.nativeGps.syncTimer);
+    state.nativeGps.syncTimer = setInterval(() => {
+      if (document.visibilityState === 'visible' && ['recording','paused','finished'].includes(state.activity.status)) {
+        syncNativeActivityTrack().catch(() => {});
+      }
+    }, 4000);
+  }
+
+  async function startNativeActivityLocation({ clear = false } = {}) {
     if (state.nativeGps.starting) return false;
-    const plugin = getNativeBackgroundGeolocation();
-    if (!plugin) return false;
+    const plugin = getNativeActivityTracker();
+    const sessionId = nativeActivitySessionId();
+    if (!plugin || !sessionId) return false;
 
     state.nativeGps.starting = true;
     state.nativeGps.lastError = null;
-
-    // Évite deux sources GPS simultanées pendant une activité.
-    if (state.watchId !== null && 'geolocation' in navigator) {
-      try { navigator.geolocation.clearWatch(state.watchId); } catch (_) {}
-      state.watchId = null;
-    }
-
-    ui.gpsBadge.textContent = 'GPS natif : recherche…';
     const profile = getActivityProfile();
+    ui.gpsBadge.textContent = 'GPS natif : démarrage…';
 
     try {
-      await plugin.start({
-        backgroundTitle: 'Rando Radar · activité en cours',
-        backgroundMessage: 'Suivi GPS actif, même lorsque l’écran est éteint.',
-        requestPermissions: true,
-        stale: false,
-        distanceFilter: profile.cycling ? 4 : 2,
-        minIntervalMs: profile.cycling ? 2000 : 3000
-      }, (location, error) => {
-        if (error) {
-          state.nativeGps.lastError = error;
-          ui.gpsBadge.textContent = 'GPS natif : erreur';
-          if (error.code === 'NOT_AUTHORIZED') {
-            toast('Autorise la localisation pour enregistrer l’activité écran éteint.');
-          }
-          return;
-        }
-        const pos = nativeLocationToWebPosition(location);
-        if (pos) updateLocation(pos);
+      await plugin.startTracking({
+        sessionId,
+        clear: Boolean(clear),
+        minTimeMs: profile.cycling ? 1800 : 2500,
+        minDistanceM: profile.cycling ? 3 : 2,
+        maxAccuracyM: profile.nativeAccuracy || (profile.cycling ? 40 : 30),
+        maxSpeedKmh: profile.nativeMaxSpeed || 160
       });
       state.nativeGps.active = true;
-      ui.activityMapStatus.textContent = 'GPS NATIF · écran éteint OK';
+      state.nativeGps.lastSyncedTimestamp = 0;
+      ui.gpsBadge.textContent = 'GPS natif : actif';
+      ui.activityMapStatus.textContent = 'GPS NATIF · trace enregistrée écran éteint';
+      startNativeSyncTimer();
+      await syncNativeActivityTrack(true);
       return true;
     } catch (err) {
       state.nativeGps.lastError = err;
       state.nativeGps.active = false;
-      console.warn('GPS natif indisponible, repli GPS navigateur.', err);
+      console.warn('Enregistreur GPS natif indisponible, repli GPS navigateur.', err);
       return false;
     } finally {
       state.nativeGps.starting = false;
@@ -409,12 +396,88 @@
   }
 
   async function stopNativeActivityLocation() {
-    const plugin = state.nativeGps.plugin || getNativeBackgroundGeolocation();
-    if (!plugin || (!state.nativeGps.active && !state.nativeGps.starting)) return;
-    try { await plugin.stop(); } catch (err) { console.warn('Arrêt GPS natif impossible', err); }
+    clearInterval(state.nativeGps.syncTimer);
+    state.nativeGps.syncTimer = null;
+    const plugin = state.nativeGps.plugin || getNativeActivityTracker();
+    if (!plugin || !nativeActivitySessionId()) {
+      state.nativeGps.active = false;
+      return;
+    }
+    try { await syncNativeActivityTrack(true); } catch (_) {}
+    try { await plugin.stopTracking({ sessionId: nativeActivitySessionId() }); }
+    catch (err) { console.warn('Arrêt enregistreur GPS natif impossible', err); }
     state.nativeGps.active = false;
     state.nativeGps.starting = false;
   }
+
+  function nativePointToActivityPoint(raw) {
+    if (!raw) return null;
+    const lat = Number(raw.lat ?? raw.latitude);
+    const lon = Number(raw.lon ?? raw.longitude);
+    const timestamp = Number(raw.timestamp ?? raw.time);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(timestamp)) return null;
+    return {
+      lat,
+      lon,
+      ele: Number.isFinite(Number(raw.altitude)) ? Number(raw.altitude) : null,
+      time: new Date(timestamp).toISOString(),
+      timestamp,
+      accuracy: Number.isFinite(Number(raw.accuracy)) ? Number(raw.accuracy) : null,
+      speedKmh: Number.isFinite(Number(raw.speedKmh)) ? Math.max(0, Number(raw.speedKmh)) : null
+    };
+  }
+
+  function replaceActivityTrackFromNative(points) {
+    if (!Array.isArray(points)) return;
+    const clean = points.map(nativePointToActivityPoint).filter(Boolean).sort((a,b) => a.timestamp - b.timestamp);
+    if (!clean.length) return;
+
+    state.activity.points = clean;
+    state.activity.distanceKm = clean.length > 1 ? routeDistance(clean) : 0;
+    const last = clean[clean.length - 1];
+    const prev = clean.length > 1 ? clean[clean.length - 2] : null;
+    if (Number.isFinite(last.speedKmh)) {
+      state.activity.currentSpeed = last.speedKmh;
+    } else if (prev) {
+      const dt = Math.max(0.5, (last.timestamp - prev.timestamp) / 1000);
+      state.activity.currentSpeed = (haversine(prev, last) / dt) * 3600;
+    } else {
+      state.activity.currentSpeed = 0;
+    }
+    state.nativeGps.lastSyncedTimestamp = last.timestamp;
+
+    if (!state.activity.line) {
+      state.activity.line = L.polyline([], { color:'#fb7185', weight:5, opacity:.96 }).addTo(state.map);
+    }
+    state.activity.line.setLatLngs(clean.map(p => [p.lat, p.lon]));
+    updateActivityUI();
+    persistActivitySnapshot();
+  }
+
+  async function syncNativeActivityTrack(force = false) {
+    const plugin = getNativeActivityTracker();
+    const sessionId = nativeActivitySessionId();
+    if (!plugin || !sessionId) return false;
+    try {
+      const result = await plugin.getPoints({ sessionId });
+      const points = Array.isArray(result?.points) ? result.points : [];
+      if (!points.length) return false;
+      const newest = Number(points[points.length - 1]?.timestamp ?? points[points.length - 1]?.time) || 0;
+      if (!force && newest && newest <= state.nativeGps.lastSyncedTimestamp) {
+        if (Date.now() - newest > 12000) {
+          state.activity.currentSpeed = 0;
+          updateActivityUI();
+        }
+        return true;
+      }
+      replaceActivityTrackFromNative(points);
+      return true;
+    } catch (err) {
+      if (force) console.warn('Lecture trace GPS native impossible', err);
+      return false;
+    }
+  }
+
 
   function startLocation(center = true, { forceWeb = false } = {}) {
     if (center && state.location) {
@@ -424,18 +487,8 @@
       state.centerOnNextLocation = true;
     }
 
-    // Pendant l’enregistrement, l’APK utilise le service GPS natif Android.
-    // Il continue de recevoir des positions lorsque l’écran est verrouillé.
-    if (!forceWeb && state.activity.status === 'recording' && getNativeBackgroundGeolocation()) {
-      if (state.nativeGps.active || state.nativeGps.starting) return;
-      startNativeActivityLocation().then(ok => {
-        if (!ok) startLocation(false, { forceWeb: true });
-      });
-      return;
-    }
-
-    // Si le service natif tourne déjà, le bouton ◎ ne doit pas lancer un second GPS.
-    if (state.nativeGps.active) return;
+    // Dans l’APK Android, le service natif enregistre la trace indépendamment de la WebView.
+    // Le GPS navigateur reste actif uniquement pour déplacer le point bleu et les aides à l’écran.
 
     if (!('geolocation' in navigator)) {
       toast('La géolocalisation n’est pas disponible sur cet appareil.');
@@ -476,7 +529,7 @@
       state.accuracyCircle.setLatLng(ll).setRadius(accuracy || 10);
     }
 
-    ui.gpsBadge.textContent = `${pos?.__native ? 'GPS natif' : 'GPS'} : ±${Math.round(accuracy || 0)} m`;
+    ui.gpsBadge.textContent = `${state.nativeGps.active ? 'GPS natif' : 'GPS'} : ±${Math.round(accuracy || 0)} m`;
     if (Number.isFinite(altitude)) ui.elevationNow.textContent = `${Math.round(altitude)} m`;
 
     if (state.centerOnNextLocation) {
@@ -484,7 +537,7 @@
       state.centerOnNextLocation = false;
     }
 
-    if (state.activity.status === 'recording') recordActivityPoint(state.location);
+    if (state.activity.status === 'recording' && !(state.activity.nativeSessionId && getNativeActivityTracker())) recordActivityPoint(state.location);
     if (state.activity.followRoute) updateRouteFollowGuide(state.location);
     if (state.activity.target) updateTargetGuide();
     if (['recording','paused'].includes(state.activity.status)) persistActivitySnapshot();
@@ -2713,7 +2766,8 @@
       pausedAt: a.pausedAt,
       pausedMs: a.pausedMs || 0,
       finishedAt: a.finishedAt,
-      points: (a.points || []).map(p => ({
+      nativeSessionId: a.nativeSessionId || '',
+      points: a.nativeSessionId ? [] : (a.points || []).map(p => ({
         lat: Number(p.lat), lon: Number(p.lon),
         ele: hasElevation(p.ele) ? Number(p.ele) : null,
         time: p.time || null,
@@ -2751,6 +2805,14 @@
     catch (_) { clearPersistedActivity(); return false; }
     if (!snap || !['recording','paused','finished'].includes(snap.status)) return false;
 
+    // Les versions précédentes enregistraient l'activité via la WebView : écran éteint,
+    // Android pouvait mettre les callbacks en file d'attente et créer de grandes lignes droites.
+    // On ne restaure pas une ancienne activité encore en cours sans session native.
+    if (['recording','paused'].includes(snap.status) && getNativeActivityTracker() && !snap.nativeSessionId) {
+      clearPersistedActivity();
+      return false;
+    }
+
     // Évite de ressusciter une activité oubliée depuis plusieurs jours.
     if (!snap.savedAt || Date.now() - Number(snap.savedAt) > 48 * 3600 * 1000) {
       clearPersistedActivity();
@@ -2781,6 +2843,7 @@
     state.activity.distanceKm = Number(snap.distanceKm) || (pts.length > 1 ? routeDistance(pts) : 0);
     state.activity.currentSpeed = snap.status === 'recording' ? (Number(snap.currentSpeed) || 0) : 0;
     state.activity.name = snap.name || `${getActivityProfile(mode).label} restaurée`;
+    state.activity.nativeSessionId = typeof snap.nativeSessionId === 'string' ? snap.nativeSessionId : '';
     state.activity.followRoute = followRoute;
     state.activity.followRouteCumKm = followRoute ? buildCumulativeRouteKm(followRoute.points) : null;
     state.activity.followRouteLastIndex = Number.isInteger(snap.followRouteLastIndex) ? snap.followRouteLastIndex : null;
@@ -2809,6 +2872,10 @@
 
     if (snap.status === 'recording' || snap.status === 'paused') {
       startLocation(false);
+      if (state.activity.nativeSessionId && getNativeActivityTracker()) {
+        if (snap.status === 'recording') startNativeActivityLocation({ clear:false }).catch(() => {});
+        else syncNativeActivityTrack(true).catch(() => {});
+      }
       setAlert('safe', '↻', 'Activité restaurée', `${getActivityProfile(mode).label} reprise après le rechargement de la page.`);
       toast(snap.status === 'paused' ? 'Activité restaurée en pause.' : 'Activité restaurée · GPS repris.');
       if (snap.mapFullscreen) {
@@ -2821,6 +2888,9 @@
     }
     // Réécrit immédiatement l'état restauré : même un second rechargement
     // juste après le premier ne peut pas perdre l'activité.
+    if (state.activity.nativeSessionId && getNativeActivityTracker()) {
+      syncNativeActivityTrack(true).catch(() => {});
+    }
     persistActivitySnapshot(true);
     return true;
   }
@@ -2849,6 +2919,7 @@
     state.activity.points = [];
     state.activity.distanceKm = 0;
     state.activity.currentSpeed = 0;
+    state.activity.nativeSessionId = getNativeActivityTracker() ? makeNativeActivitySessionId() : '';
     const activityProfile = getActivityProfile();
     state.activity.name = routeToFollow
       ? `${routeToFollow.name} · ${activityProfile.label} · ${new Date().toLocaleString('fr-FR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})}`
@@ -2856,7 +2927,13 @@
     state.activity.line = L.polyline([], { color:'#fb7185', weight:5, opacity:.96 }).addTo(state.map);
     persistActivitySnapshot(true);
     startLocation(false);
-    if (state.location) recordActivityPoint(state.location, true);
+    if (state.activity.nativeSessionId) {
+      startNativeActivityLocation({ clear:true }).then(ok => {
+        if (!ok && state.location) recordActivityPoint(state.location, true);
+      });
+    } else if (state.location) {
+      recordActivityPoint(state.location, true);
+    }
     clearInterval(state.activity.timer);
     state.activity.timer = setInterval(updateActivityUI, 1000);
     updateActivityUI();
@@ -2883,7 +2960,7 @@
   function recordActivityPoint(loc, force = false) {
     if (state.activity.status !== 'recording') return;
     const accuracy = Number(loc.accuracy);
-    if (!force && Number.isFinite(accuracy) && accuracy > 60) return;
+    if (!force && Number.isFinite(accuracy) && accuracy > (getActivityProfile().nativeAccuracy || 40)) return;
 
     const p = {
       lat: loc.lat,
@@ -2922,14 +2999,15 @@
       state.activity.status = 'paused';
       state.activity.pausedAt = Date.now();
       state.activity.currentSpeed = 0;
-      stopNativeActivityLocation().finally(() => startLocation(false, { forceWeb: true }));
+      stopNativeActivityLocation();
       toast('Activité en pause.');
     } else if (state.activity.status === 'paused') {
       state.activity.pausedMs += Date.now() - state.activity.pausedAt;
       state.activity.pausedAt = null;
       state.activity.status = 'recording';
       startLocation(false);
-      if (state.location) recordActivityPoint(state.location, true);
+      if (state.activity.nativeSessionId) startNativeActivityLocation({ clear:false }).catch(() => {});
+      else if (state.location) recordActivityPoint(state.location, true);
       toast('Enregistrement repris.');
     }
     updateActivityUI();
@@ -2954,14 +3032,16 @@
     document.body.classList.remove('activity-choice-open');
   }
 
-  function finalizeActivity(keepTrack) {
+  async function finalizeActivity(keepTrack) {
     if (!['recording','paused'].includes(state.activity.status)) {
       closeFinishActivityModal();
       return;
     }
 
-    // Fin d’activité = arrêt immédiat du service GPS natif et de sa notification.
-    stopNativeActivityLocation();
+    // Récupère d’abord tous les points enregistrés nativement pendant l’écran éteint,
+    // puis arrête le service et sa notification.
+    if (state.activity.nativeSessionId) await syncNativeActivityTrack(true);
+    await stopNativeActivityLocation();
 
     if (state.activity.status === 'paused' && state.activity.pausedAt) {
       state.activity.pausedMs += Date.now() - state.activity.pausedAt;
@@ -2997,6 +3077,7 @@
     state.activity.distanceKm = 0;
     state.activity.currentSpeed = 0;
     state.activity.name = '';
+    state.activity.nativeSessionId = '';
     state.activity.followRoute = null;
     state.activity.followRouteCumKm = null;
     state.activity.followRouteLastIndex = null;
@@ -3082,9 +3163,11 @@
     }
 
     ui.activityMapTitle.textContent = `${activityProfile.icon} ${activityProfile.label}`;
-    ui.activityMapStatus.textContent = a.status === 'paused'
-      ? 'EN PAUSE'
-      : (state.nativeGps.active ? 'GPS NATIF · écran éteint OK' : 'GPS · enregistrement');
+    ui.activityMapStatus.textContent = a.status === 'finished'
+      ? 'TERMINÉE'
+      : a.status === 'paused'
+        ? 'EN PAUSE'
+        : (state.nativeGps.active ? 'GPS NATIF · écran éteint OK' : 'GPS · enregistrement');
     ui.activityMapDistance.textContent = distance;
     ui.activityMapTime.textContent = time;
     ui.activityMapSpeed.textContent = speed;
@@ -4257,7 +4340,11 @@
     window.addEventListener('pagehide', () => persistActivitySnapshot(true));
     window.addEventListener('beforeunload', () => persistActivitySnapshot(true));
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') persistActivitySnapshot(true);
+      if (document.visibilityState === 'hidden') {
+        persistActivitySnapshot(true);
+      } else if (state.activity.nativeSessionId && ['recording','paused','finished'].includes(state.activity.status)) {
+        syncNativeActivityTrack(true).catch(() => {});
+      }
     });
   }
 
@@ -4267,7 +4354,7 @@
     // de l'interface après une mise à jour de l'APK.
     const isNativeCapacitor = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
     if (isNativeCapacitor) return;
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.18', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.19', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
   }
 
   initMap();
