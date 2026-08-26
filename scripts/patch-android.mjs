@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION_NAME = '1.10.19';
-const VERSION_CODE = 11019;
+const VERSION_NAME = '1.10.20';
+const VERSION_CODE = 11020;
 const PACKAGE_NAME = 'com.randoradar.app';
 const javaDir = `android/app/src/main/java/${PACKAGE_NAME.replaceAll('.', '/')}`;
 
@@ -48,6 +48,9 @@ if (fs.existsSync(gradlePath)) {
   let gradle = fs.readFileSync(gradlePath, 'utf8');
   gradle = gradle.replace(/versionCode\s+\d+/, `versionCode ${VERSION_CODE}`);
   gradle = gradle.replace(/versionName\s+"[^"]+"/, `versionName "${VERSION_NAME}"`);
+  if (!gradle.includes("com.google.android.gms:play-services-location:21.4.0")) {
+    gradle = gradle.replace(/dependencies\s*\{/, `dependencies {\n    implementation 'com.google.android.gms:play-services-location:21.4.0'`);
+  }
   fs.writeFileSync(gradlePath, gradle);
 }
 
@@ -61,40 +64,49 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.pm.ServiceInfo;
 import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.ServiceCompat;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
-public class NativeLocationService extends Service implements LocationListener {
+public class NativeLocationService extends Service {
     public static final String ACTION_START = "com.randoradar.app.START_TRACKING";
     public static final String ACTION_STOP = "com.randoradar.app.STOP_TRACKING";
     private static final String CHANNEL_ID = "randoradar_tracking";
     private static final int NOTIFICATION_ID = 4819;
     private static final String PREFS = "randoradar_native_tracker";
 
-    private LocationManager locationManager;
+    private FusedLocationProviderClient fusedClient;
+    private LocationCallback locationCallback;
     private String sessionId = "";
-    private long minTimeMs = 2500L;
+    private long minTimeMs = 2000L;
     private float minDistanceM = 2f;
-    private float maxAccuracyM = 30f;
-    private float maxSpeedKmh = 20f;
+    private float maxAccuracyM = 40f;
+    private float maxSpeedKmh = 160f;
     private double lastLat = Double.NaN;
     private double lastLon = Double.NaN;
     private long lastTime = 0L;
@@ -103,6 +115,16 @@ public class NativeLocationService extends Service implements LocationListener {
     public void onCreate() {
         super.onCreate();
         createNotificationChannel();
+        fusedClient = LocationServices.getFusedLocationProviderClient(this);
+        locationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult result) {
+                if (result == null) return;
+                List<Location> locations = new ArrayList<>(result.getLocations());
+                Collections.sort(locations, Comparator.comparingLong(Location::getTime));
+                for (Location location : locations) acceptLocation(location);
+            }
+        };
     }
 
     @Override
@@ -115,10 +137,10 @@ public class NativeLocationService extends Service implements LocationListener {
         SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         if (intent != null && ACTION_START.equals(intent.getAction())) {
             sessionId = safeSession(intent.getStringExtra("sessionId"));
-            minTimeMs = Math.max(1000L, intent.getLongExtra("minTimeMs", 2500L));
+            minTimeMs = Math.max(1000L, intent.getLongExtra("minTimeMs", 2000L));
             minDistanceM = Math.max(0f, intent.getFloatExtra("minDistanceM", 2f));
-            maxAccuracyM = Math.max(10f, intent.getFloatExtra("maxAccuracyM", 30f));
-            maxSpeedKmh = Math.max(10f, intent.getFloatExtra("maxSpeedKmh", 20f));
+            maxAccuracyM = Math.max(10f, intent.getFloatExtra("maxAccuracyM", 40f));
+            maxSpeedKmh = Math.max(20f, intent.getFloatExtra("maxSpeedKmh", 160f));
             prefs.edit()
                 .putBoolean("active", true)
                 .putString("sessionId", sessionId)
@@ -130,10 +152,10 @@ public class NativeLocationService extends Service implements LocationListener {
         } else {
             if (!prefs.getBoolean("active", false)) return START_NOT_STICKY;
             sessionId = safeSession(prefs.getString("sessionId", ""));
-            minTimeMs = prefs.getLong("minTimeMs", 2500L);
+            minTimeMs = prefs.getLong("minTimeMs", 2000L);
             minDistanceM = prefs.getFloat("minDistanceM", 2f);
-            maxAccuracyM = prefs.getFloat("maxAccuracyM", 30f);
-            maxSpeedKmh = prefs.getFloat("maxSpeedKmh", 20f);
+            maxAccuracyM = prefs.getFloat("maxAccuracyM", 40f);
+            maxSpeedKmh = prefs.getFloat("maxSpeedKmh", 160f);
         }
 
         if (sessionId.isEmpty()) {
@@ -141,10 +163,17 @@ public class NativeLocationService extends Service implements LocationListener {
             return START_NOT_STICKY;
         }
 
-        startForeground(NOTIFICATION_ID, buildNotification());
+        promoteToForeground();
         loadLastAcceptedPoint();
         startLocationUpdates();
         return START_STICKY;
+    }
+
+    private void promoteToForeground() {
+        int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+            ? ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            : 0;
+        ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), type);
     }
 
     private void createNotificationChannel() {
@@ -169,11 +198,12 @@ public class NativeLocationService extends Service implements LocationListener {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Rando Radar · activité en cours")
-            .setContentText("GPS natif actif · la trace continue écran éteint")
+            .setContentText("GPS haute précision actif · écran éteint compris")
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build();
     }
 
@@ -184,21 +214,22 @@ public class NativeLocationService extends Service implements LocationListener {
             return;
         }
 
-        if (locationManager == null) locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        try { fusedClient.removeLocationUpdates(locationCallback); } catch (Exception ignored) {}
+
+        LocationRequest request = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, minTimeMs)
+            .setMinUpdateIntervalMillis(Math.max(1000L, minTimeMs / 2L))
+            .setMinUpdateDistanceMeters(minDistanceM)
+            .setMaxUpdateDelayMillis(Math.max(3000L, minTimeMs * 2L))
+            .build();
+
         try {
-            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, minTimeMs, minDistanceM, this, Looper.getMainLooper());
-            }
-        } catch (Exception ignored) {}
-        try {
-            if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, Math.max(minTimeMs, 4000L), Math.max(minDistanceM, 4f), this, Looper.getMainLooper());
-            }
-        } catch (Exception ignored) {}
+            fusedClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper());
+        } catch (SecurityException e) {
+            stopTracking();
+        }
     }
 
-    @Override
-    public void onLocationChanged(Location location) {
+    private void acceptLocation(Location location) {
         if (location == null) return;
         float accuracy = location.hasAccuracy() ? location.getAccuracy() : 9999f;
         if (accuracy <= 0 || accuracy > maxAccuracyM) return;
@@ -218,12 +249,12 @@ public class NativeLocationService extends Service implements LocationListener {
             double dtSeconds = Math.max(0.5d, (timestamp - lastTime) / 1000d);
             computedKmh = (distanceM / dtSeconds) * 3.6d;
 
-            // Élimine les bonds GPS : un point incohérent n'entre jamais dans le fichier natif.
             if (computedKmh > maxSpeedKmh) return;
             if (location.hasSpeed() && location.getSpeed() >= 0 && location.getSpeed() * 3.6d > maxSpeedKmh * 1.25d) return;
 
-            // Filtre le petit tremblement GPS à l'arrêt sans gommer le début d'un déplacement réel.
-            double jitterM = Math.max(1.5d, Math.min(7d, accuracy * 0.28d));
+            // Très faible déplacement = bruit GPS. Au-delà de 15 s on garde quand même un point,
+            // afin de ne jamais créer un long trou dans la trace quand l'écran est éteint.
+            double jitterM = Math.max(1.2d, Math.min(5d, accuracy * 0.20d));
             if (distanceM < jitterM && (timestamp - lastTime) < 15000L) return;
         }
 
@@ -235,7 +266,7 @@ public class NativeLocationService extends Service implements LocationListener {
             point.put("timestamp", timestamp);
             point.put("altitude", location.hasAltitude() ? location.getAltitude() : JSONObject.NULL);
             point.put("speedKmh", location.hasSpeed() && location.getSpeed() >= 0 ? location.getSpeed() * 3.6d : computedKmh);
-            point.put("provider", location.getProvider());
+            point.put("provider", "fused");
             appendLine(point.toString());
             lastLat = lat;
             lastLon = lon;
@@ -276,23 +307,21 @@ public class NativeLocationService extends Service implements LocationListener {
 
     private String safeSession(String raw) {
         if (raw == null) return "";
-        return raw.replaceAll("[^A-Za-z0-9_-]", "").substring(0, Math.min(raw.replaceAll("[^A-Za-z0-9_-]", "").length(), 80));
+        String clean = raw.replaceAll("[^A-Za-z0-9_-]", "");
+        return clean.substring(0, Math.min(clean.length(), 80));
     }
 
     private void stopTracking() {
-        try { if (locationManager != null) locationManager.removeUpdates(this); } catch (Exception ignored) {}
+        try { if (fusedClient != null && locationCallback != null) fusedClient.removeLocationUpdates(locationCallback); } catch (Exception ignored) {}
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean("active", false).apply();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE);
         else stopForeground(true);
         stopSelf();
     }
 
-    @Override public void onProviderEnabled(String provider) {}
-    @Override public void onProviderDisabled(String provider) {}
-    @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
     @Nullable @Override public IBinder onBind(Intent intent) { return null; }
     @Override public void onDestroy() {
-        try { if (locationManager != null) locationManager.removeUpdates(this); } catch (Exception ignored) {}
+        try { if (fusedClient != null && locationCallback != null) fusedClient.removeLocationUpdates(locationCallback); } catch (Exception ignored) {}
         super.onDestroy();
     }
 }
@@ -303,6 +332,8 @@ const pluginJava = `package ${PACKAGE_NAME};
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.PowerManager;
+import android.content.Context;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -335,10 +366,10 @@ public class RandoRadarTrackerPlugin extends Plugin {
         Boolean clear = call.getBoolean("clear", false);
         if (Boolean.TRUE.equals(clear)) clearOldTracks();
 
-        int minTimeMs = call.getInt("minTimeMs", 2500);
+        int minTimeMs = call.getInt("minTimeMs", 2000);
         double minDistanceM = call.getDouble("minDistanceM", 2.0);
-        double maxAccuracyM = call.getDouble("maxAccuracyM", 30.0);
-        double maxSpeedKmh = call.getDouble("maxSpeedKmh", 20.0);
+        double maxAccuracyM = call.getDouble("maxAccuracyM", 40.0);
+        double maxSpeedKmh = call.getDouble("maxSpeedKmh", 160.0);
 
         Intent service = new Intent(getContext(), NativeLocationService.class);
         service.setAction(NativeLocationService.ACTION_START);
@@ -357,7 +388,7 @@ public class RandoRadarTrackerPlugin extends Plugin {
 
     @PluginMethod
     public void stopTracking(PluginCall call) {
-        getContext().getSharedPreferences("randoradar_native_tracker", android.content.Context.MODE_PRIVATE)
+        getContext().getSharedPreferences("randoradar_native_tracker", Context.MODE_PRIVATE)
             .edit().putBoolean("active", false).apply();
         Intent service = new Intent(getContext(), NativeLocationService.class);
         getContext().stopService(service);
@@ -383,6 +414,9 @@ public class RandoRadarTrackerPlugin extends Plugin {
         }
         JSObject ret = new JSObject();
         ret.put("points", array);
+        ret.put("count", array.length());
+        PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+        ret.put("batteryUnrestricted", pm != null && pm.isIgnoringBatteryOptimizations(getContext().getPackageName()));
         call.resolve(ret);
     }
 
@@ -425,4 +459,4 @@ if (!mainActivity.includes('registerPlugin(RandoRadarTrackerPlugin.class)')) {
   fs.writeFileSync(mainActivityPath, mainActivity);
 }
 
-console.log(`Android configuré : enregistreur GPS natif persistant, filtre anti-bonds, version ${VERSION_NAME}`);
+console.log(`Android configuré : Fused Location Provider haute précision, version ${VERSION_NAME}`);
