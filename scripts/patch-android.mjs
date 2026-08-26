@@ -10,17 +10,25 @@ const permissions = [
   'android.permission.ACCESS_FINE_LOCATION'
 ];
 
-for (const permission of permissions) {
-  if (!manifest.includes(`android:name="${permission}"`)) {
-    manifest = manifest.replace(
-      '<manifest',
-      `<manifest`
-    );
-    const pos = manifest.indexOf('>');
-    manifest = manifest.slice(0, pos + 1) +
-      `\n    <uses-permission android:name="${permission}" />` +
-      manifest.slice(pos + 1);
+// Les <uses-permission> doivent être des enfants de <manifest>,
+// donc on les insère juste avant <application> (et jamais avant la racine XML).
+const missingPermissions = permissions.filter(
+  permission => !manifest.includes(`android:name="${permission}"`)
+);
+
+if (missingPermissions.length) {
+  const permissionXml = missingPermissions
+    .map(permission => `    <uses-permission android:name="${permission}" />`)
+    .join('\n');
+
+  if (!manifest.includes('<application')) {
+    throw new Error('Balise <application> introuvable dans AndroidManifest.xml');
   }
+
+  manifest = manifest.replace(
+    /\n\s*<application\b/,
+    `\n${permissionXml}\n\n    <application`
+  );
 }
 
 // Respecte l'orientation portrait de la PWA.
