@@ -1,4 +1,4 @@
-/* Rando Radar v1.10.23 — caméra GPS alimentée directement par le GPS natif */
+/* Rando Radar v1.10.24 — reprise native complète après fermeture/réouverture */
 (() => {
   'use strict';
 
@@ -578,6 +578,83 @@
     }, 1500);
   }
 
+  function ensureActivityUiTimer() {
+    clearInterval(state.activity.timer);
+    state.activity.timer = null;
+    if (['recording','paused','finished'].includes(state.activity.status)) {
+      state.activity.timer = setInterval(updateActivityUI, 1000);
+      updateActivityUI();
+    }
+  }
+
+  async function recoverNativeActivityState({ reason = 'resume', allowRestart = true } = {}) {
+    const plugin = getNativeActivityTracker();
+    if (!plugin) return false;
+
+    let nativeStatus = null;
+    if (typeof plugin.getStatus === 'function') {
+      try { nativeStatus = await plugin.getStatus(); }
+      catch (err) { console.warn('État GPS natif illisible', err); }
+    }
+
+    const nativeSessionId = String(nativeStatus?.sessionId || '').trim();
+    const nativeActive = nativeStatus?.active === true;
+
+    // Si le service Android connaît une activité active, il devient la source de vérité,
+    // même si Android a détruit la WebView ou si localStorage n'a pas eu le temps d'écrire.
+    if (nativeActive && nativeSessionId) {
+      const nativeMode = ACTIVITY_PROFILES[nativeStatus?.mode] ? nativeStatus.mode : (ACTIVITY_PROFILES[state.activity.mode] ? state.activity.mode : 'hike');
+      const nativeStartedAt = Number(nativeStatus?.startedAt) || Number(state.activity.startedAt) || Date.now();
+
+      if (!['recording','paused'].includes(state.activity.status) || state.activity.nativeSessionId !== nativeSessionId) {
+        clearActivityTrack();
+        clearActivityTarget();
+        state.activity.status = 'recording';
+        state.activity.mode = nativeMode;
+        state.activity.startedAt = nativeStartedAt;
+        state.activity.pausedAt = null;
+        state.activity.pausedMs = Number(state.activity.pausedMs) || 0;
+        state.activity.finishedAt = null;
+        state.activity.points = [];
+        state.activity.distanceKm = 0;
+        state.activity.currentSpeed = 0;
+        state.activity.nativeSessionId = nativeSessionId;
+        state.activity.name = nativeStatus?.activityName || `${getActivityProfile(nativeMode).label} restaurée`;
+        state.activity.line = L.polyline([], { color:'#fb7185', weight:5, opacity:.96 }).addTo(state.map);
+      } else {
+        state.activity.nativeSessionId = nativeSessionId;
+        state.activity.startedAt = nativeStartedAt;
+        state.activity.mode = nativeMode;
+        if (nativeStatus?.activityName) state.activity.name = nativeStatus.activityName;
+      }
+
+      state.nativeGps.active = true;
+      state.nativeGps.lastError = null;
+      startNativeSyncTimer();
+      ensureActivityUiTimer();
+      await syncNativeActivityTrack(true);
+      if (state.activity.status === 'recording') enableGpsMapFollow({ raiseZoom: false });
+      persistActivitySnapshot(true);
+      syncActivityMapPanel();
+      return true;
+    }
+
+    // Si la WebView se souvient d'une activité en cours mais que le service a été
+    // tué par Android, le relancer sans effacer le fichier de trace existant.
+    if (allowRestart && state.activity.status === 'recording' && state.activity.nativeSessionId) {
+      const restarted = await startNativeActivityLocation({ clear:false });
+      ensureActivityUiTimer();
+      if (restarted) {
+        await syncNativeActivityTrack(true);
+        persistActivitySnapshot(true);
+        return true;
+      }
+    }
+
+    if (['recording','paused','finished'].includes(state.activity.status)) ensureActivityUiTimer();
+    return false;
+  }
+
   async function startNativeActivityLocation({ clear = false } = {}) {
     if (state.nativeGps.starting) return false;
     const plugin = getNativeActivityTracker();
@@ -593,6 +670,9 @@
       await plugin.startTracking({
         sessionId,
         clear: Boolean(clear),
+        startedAt: Number(state.activity.startedAt) || Date.now(),
+        mode: state.activity.mode || 'hike',
+        activityName: state.activity.name || '',
         minTimeMs: profile.cycling ? 1800 : 2500,
         minDistanceM: profile.cycling ? 3 : 2,
         maxAccuracyM: profile.nativeAccuracy || (profile.cycling ? 40 : 30),
@@ -3147,17 +3227,16 @@
       ui.targetGuide.classList.remove('hidden');
     }
 
-    clearInterval(state.activity.timer);
-    state.activity.timer = setInterval(updateActivityUI, 1000);
-    updateActivityUI();
+    ensureActivityUiTimer();
     syncActivityMapPanel();
 
     if (snap.status === 'recording' || snap.status === 'paused') {
       startLocation(false);
       if (snap.status === 'recording') enableGpsMapFollow({ raiseZoom: false });
       if (state.activity.nativeSessionId && getNativeActivityTracker()) {
-        if (snap.status === 'recording') startNativeActivityLocation({ clear:false }).catch(() => {});
-        else syncNativeActivityTrack(true).catch(() => {});
+        // Le vrai état du service sera relu juste après le chargement.
+        // Cela évite de repartir avec une interface vide alors que la trace native existe déjà.
+        recoverNativeActivityState({ reason:'snapshot-restore', allowRestart: snap.status === 'recording' }).catch(() => {});
       }
       setAlert('safe', '↻', 'Activité restaurée', `${getActivityProfile(mode).label} reprise après le rechargement de la page.`);
       toast(snap.status === 'paused' ? 'Activité restaurée en pause.' : 'Activité restaurée · GPS repris.');
@@ -3172,7 +3251,7 @@
     // Réécrit immédiatement l'état restauré : même un second rechargement
     // juste après le premier ne peut pas perdre l'activité.
     if (state.activity.nativeSessionId && getNativeActivityTracker()) {
-      syncNativeActivityTrack(true).catch(() => {});
+      recoverNativeActivityState({ reason:'restore-final', allowRestart: snap.status === 'recording' }).catch(() => {});
     }
     persistActivitySnapshot(true);
     return true;
@@ -3218,9 +3297,7 @@
     } else if (state.location) {
       recordActivityPoint(state.location, true);
     }
-    clearInterval(state.activity.timer);
-    state.activity.timer = setInterval(updateActivityUI, 1000);
-    updateActivityUI();
+    ensureActivityUiTimer();
     if (routeToFollow) {
       drawRoute(false);
       setAlert('safe', '🧭', 'Suivi du GPX en cours', `${routeToFollow.name} · le tracé bleu reste affiché et ta trace réelle est enregistrée en rose.`);
@@ -4641,9 +4718,18 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
         persistActivitySnapshot(true);
-      } else if (state.activity.nativeSessionId && ['recording','paused','finished'].includes(state.activity.status)) {
-        syncNativeActivityTrack(true).catch(() => {});
+      } else {
+        // Android peut suspendre ou recréer la WebView pendant que le service GPS
+        // continue. À chaque retour au premier plan on reconstruit donc l'UI depuis
+        // le service natif et son fichier de trace.
+        recoverNativeActivityState({ reason:'visibility', allowRestart:true }).catch(() => {});
       }
+    });
+    window.addEventListener('pageshow', () => {
+      recoverNativeActivityState({ reason:'pageshow', allowRestart:true }).catch(() => {});
+    });
+    window.addEventListener('focus', () => {
+      if (document.visibilityState === 'visible') recoverNativeActivityState({ reason:'focus', allowRestart:true }).catch(() => {});
     });
   }
 
@@ -4653,7 +4739,7 @@
     // de l'interface après une mise à jour de l'APK.
     const isNativeCapacitor = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
     if (isNativeCapacitor) return;
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.23', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.24', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
   }
 
   initMap();
@@ -4665,6 +4751,10 @@
   renderSavedRoutes();
   updateActivityUI();
   if (activityRestored) syncActivityMapPanel();
+  // Récupération à froid : fonctionne même si Android a tué l'interface avant
+  // que pagehide/localStorage ait eu le temps de sauvegarder la dernière seconde.
+  setTimeout(() => recoverNativeActivityState({ reason:'cold-start-1', allowRestart:true }).catch(() => {}), 250);
+  setTimeout(() => recoverNativeActivityState({ reason:'cold-start-2', allowRestart:true }).catch(() => {}), 1400);
   registerSW();
   if (navigator.onLine) loadRadar(); else setTimeout(handleOfflineNetworkLoss, 250);
   setTimeout(() => startLocation(true), 400);
