@@ -1,4 +1,4 @@
-/* Rando Radar v1.10.26 — marqueur altitude aligné + fiche parcours glissable */
+/* Rando Radar v1.10.27 — export GPX Android natif + suppression hors ligne fiabilisée */
 (() => {
   'use strict';
 
@@ -4086,7 +4086,7 @@
     return `${h}h${String(m).padStart(2,'0')}`;
   }
 
-  function downloadGpx(name, points, type = 'route', activityType = '') {
+  async function downloadGpx(name, points, type = 'route', activityType = '') {
     const safeName = (name || 'Rando Radar').replace(/[<>:"/\\|?*]+/g, '-').trim() || 'Rando-Radar';
     const trkpts = points.map(p => {
       const ele = Number.isFinite(Number(p.ele)) ? `<ele>${Number(p.ele).toFixed(1)}</ele>` : '';
@@ -4094,6 +4094,26 @@
       return `      <trkpt lat="${Number(p.lat).toFixed(7)}" lon="${Number(p.lon).toFixed(7)}">${ele}${time}</trkpt>`;
     }).join('\n');
     const gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Rando Radar" xmlns="http://www.topografix.com/GPX/1/1">\n  <metadata><name>${xmlEscape(name || safeName)}</name></metadata>\n  <trk><name>${xmlEscape(name || safeName)}</name><type>${xmlEscape(type === 'activity' ? (activityType || 'activity') : 'route')}</type><trkseg>\n${trkpts}\n  </trkseg></trk>\n</gpx>`;
+
+    // APK Android : on passe par le sélecteur de fichiers natif (Storage Access
+    // Framework). L'utilisateur choisit lui-même Téléchargements, Drive, etc.
+    const nativePlugin = getNativeActivityTracker();
+    if (nativePlugin && typeof nativePlugin.exportGpx === 'function') {
+      try {
+        const result = await nativePlugin.exportGpx({ fileName: `${safeName}.gpx`, content: gpx });
+        if (result?.cancelled) return false;
+        if (result?.saved) {
+          toast(`GPX enregistré : ${safeName}.gpx`);
+          return true;
+        }
+      } catch (err) {
+        console.warn('Export GPX Android impossible', err);
+        toast('Impossible d’enregistrer le GPX. Réessaie.');
+        return false;
+      }
+    }
+
+    // PWA / navigateur : téléchargement classique.
     const blob = new Blob([gpx], { type:'application/gpx+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -4103,6 +4123,7 @@
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return true;
   }
 
   const rad = d => d * Math.PI / 180;
@@ -4277,14 +4298,44 @@
     });
   }
 
-  async function offlineDbDelete(id) {
+  async function offlineDbRewrite(items) {
     const db = await openOfflineDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(OFFLINE_STORE, 'readwrite');
-      tx.objectStore(OFFLINE_STORE).delete(id);
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
+      const store = tx.objectStore(OFFLINE_STORE);
+      store.clear();
+      for (const item of items || []) store.put(item);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error || new Error('Réécriture du stockage hors ligne impossible'));
+      tx.onabort = () => reject(tx.error || new Error('Réécriture du stockage hors ligne annulée'));
     });
+  }
+
+  async function offlineDbDelete(id) {
+    const targetId = String(id || '');
+    if (!targetId) throw new Error('Carte hors ligne introuvable.');
+    const db = await openOfflineDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(OFFLINE_STORE, 'readwrite');
+      const req = tx.objectStore(OFFLINE_STORE).delete(targetId);
+      req.onerror = () => reject(req.error || new Error('Suppression impossible'));
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error || new Error('Suppression impossible'));
+      tx.onabort = () => reject(tx.error || new Error('Suppression annulée'));
+    });
+
+    // Certaines WebView Android ont déjà laissé une entrée IndexedDB visible après
+    // une transaction delete() pourtant terminée. On vérifie réellement le résultat.
+    let remaining = await offlineDbGetAll();
+    if (remaining.some(item => String(item?.id || '') === targetId)) {
+      const keep = remaining.filter(item => String(item?.id || '') !== targetId);
+      await offlineDbRewrite(keep);
+      remaining = await offlineDbGetAll();
+    }
+    if (remaining.some(item => String(item?.id || '') === targetId)) {
+      throw new Error('La carte hors ligne n’a pas pu être supprimée du téléphone.');
+    }
+    return true;
   }
 
   function setOfflineProgress(show, title = 'Préparation…', text = '') {
@@ -4770,8 +4821,18 @@
       state.route=JSON.parse(JSON.stringify(pkg.route)); drawRoute(true); renderRouteStats(); showAppScreen('routes'); toast(`Parcours chargé : ${pkg.route.name}`);
     } else if(btn.dataset.offlineAction==='delete') {
       if(!window.confirm(`Supprimer la carte hors ligne « ${pkg.name} » ?`))return;
-      if(state.offline.activePackage?.id===pkg.id) deactivateOfflineMap({restoreOnline:navigator.onLine});
-      await offlineDbDelete(pkg.id); await renderOfflineAreas();
+      btn.disabled = true;
+      try {
+        if(state.offline.activePackage?.id===pkg.id) deactivateOfflineMap({restoreOnline:navigator.onLine});
+        await offlineDbDelete(pkg.id);
+        await renderOfflineAreas();
+        updateOfflineNetworkBadge();
+        toast('Carte hors ligne supprimée.');
+      } catch (err) {
+        console.warn('Suppression carte hors ligne impossible', err);
+        toast(err?.message || 'Impossible de supprimer la carte hors ligne.');
+        btn.disabled = false;
+      }
     }
   }
 
@@ -5021,7 +5082,7 @@
     // de l'interface après une mise à jour de l'APK.
     const isNativeCapacitor = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
     if (isNativeCapacitor) return;
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.26', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.27', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
   }
 
   initMap();
