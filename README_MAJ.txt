@@ -1,7 +1,4 @@
-Rando Radar 1.10.27 — correction APK
+Rando Radar 1.10.28 — correctif compilation Capacitor 8
 
-- Bouton GPX : export natif Android via la fenêtre système Enregistrer sous.
-- Fonctionne pour les parcours chargés et les activités enregistrées.
-- Suppression des cartes hors ligne fiabilisée et vérifiée après effacement.
-- Si IndexedDB conserve anormalement une entrée, Rando Radar réécrit le stockage sans la carte supprimée.
-- GPS natif, boussole, centrage, radar et autres fonctions de la 1.10.26 conservés.
+Correction unique : import AndroidX ActivityResult pour le sélecteur natif GPX.
+Aucune modification du GPS natif, du suivi, de la boussole ou des cartes.
