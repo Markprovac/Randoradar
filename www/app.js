@@ -1,4 +1,4 @@
-/* Rando Radar v1.10.27 — export GPX Android natif + suppression hors ligne fiabilisée */
+/* Rando Radar v1.10.28 — export GPX Android natif + suppression hors ligne fiabilisée */
 (() => {
   'use strict';
 
@@ -5082,7 +5082,7 @@
     // de l'interface après une mise à jour de l'APK.
     const isNativeCapacitor = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
     if (isNativeCapacitor) return;
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.27', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js?v=1.10.28', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
   }
 
   initMap();
