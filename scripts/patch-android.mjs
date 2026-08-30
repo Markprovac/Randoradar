@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION_NAME = '1.10.26';
-const VERSION_CODE = 11026;
+const VERSION_NAME = '1.10.27';
+const VERSION_CODE = 11027;
 const PACKAGE_NAME = 'com.randoradar.app';
 const javaDir = `android/app/src/main/java/${PACKAGE_NAME.replaceAll('.', '/')}`;
 
@@ -87,6 +87,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -339,21 +341,27 @@ public class NativeLocationService extends Service {
 const pluginJava = `package ${PACKAGE_NAME};
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Intent;
+import android.net.Uri;
 import android.content.pm.PackageManager;
 import android.os.PowerManager;
 import android.content.Context;
 import androidx.core.content.ContextCompat;
+import com.getcapacitor.ActivityResult;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 
 @CapacitorPlugin(name = "RandoRadarTracker")
 public class RandoRadarTrackerPlugin extends Plugin {
@@ -464,6 +472,54 @@ public class RandoRadarTrackerPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void exportGpx(PluginCall call) {
+        String fileName = call.getString("fileName", "RandoRadar.gpx");
+        String content = call.getString("content", "");
+        if (content == null || content.isEmpty()) {
+            call.reject("GPX_EMPTY");
+            return;
+        }
+        fileName = safeGpxFileName(fileName);
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/gpx+xml");
+        intent.putExtra(Intent.EXTRA_TITLE, fileName);
+        startActivityForResult(call, intent, "exportGpxResult");
+    }
+
+    @ActivityCallback
+    private void exportGpxResult(PluginCall call, ActivityResult result) {
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null || result.getData().getData() == null) {
+            JSObject ret = new JSObject();
+            ret.put("saved", false);
+            ret.put("cancelled", true);
+            call.resolve(ret);
+            return;
+        }
+        Uri uri = result.getData().getData();
+        String content = call.getString("content", "");
+        try (OutputStream out = getContext().getContentResolver().openOutputStream(uri, "w")) {
+            if (out == null) throw new Exception("OUTPUT_STREAM_UNAVAILABLE");
+            out.write(content.getBytes(StandardCharsets.UTF_8));
+            out.flush();
+            JSObject ret = new JSObject();
+            ret.put("saved", true);
+            ret.put("cancelled", false);
+            ret.put("uri", uri.toString());
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("GPX_WRITE_FAILED", e);
+        }
+    }
+
+    private String safeGpxFileName(String raw) {
+        String name = raw == null ? "RandoRadar.gpx" : raw.trim();
+        if (name.isEmpty()) name = "RandoRadar.gpx";
+        if (!name.toLowerCase().endsWith(".gpx")) name += ".gpx";
+        return name;
+    }
+
+    @PluginMethod
     public void clearTracking(PluginCall call) {
         String sessionId = safeSession(call.getString("sessionId", ""));
         if (!sessionId.isEmpty()) {
@@ -502,4 +558,4 @@ if (!mainActivity.includes('registerPlugin(RandoRadarTrackerPlugin.class)')) {
   fs.writeFileSync(mainActivityPath, mainActivity);
 }
 
-console.log(`Android configuré : Fused Location Provider haute précision, version ${VERSION_NAME}`);
+console.log(`Android configuré : GPS natif + export GPX Android, version ${VERSION_NAME}`);
