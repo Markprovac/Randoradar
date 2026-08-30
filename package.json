@@ -1,6 +1,6 @@
 {
   "name": "rando-radar-android",
-  "version": "1.10.26",
+  "version": "1.10.27",
   "private": true,
   "description": "Rando Radar PWA packaged as an Android app with Capacitor.",
   "scripts": {

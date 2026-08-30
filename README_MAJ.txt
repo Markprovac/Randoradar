@@ -1,14 +1,7 @@
-Rando Radar 1.10.26 — correction point rouge + fiche glissable
+Rando Radar 1.10.27 — correction APK
 
-À remplacer dans le dépôt GitHub :
-- package.json
-- www/app.js
-- www/index.html
-- www/styles.css
-- www/sw.js
-
-Corrections :
-- le point rouge du profil altimétrique utilise maintenant le même type de marqueur DOM que le point GPS bleu, compatible avec la rotation de la carte ;
-- un ancien point rouge est supprimé quand on change de parcours ;
-- glissement vers le bas fiabilisé sur Android/WebView : poignée/en-tête capturent le geste ;
-- ouvert -> glisser bas = réduit ; réduit -> glisser bas = fermé ; glisser haut = agrandi.
+- Bouton GPX : export natif Android via la fenêtre système Enregistrer sous.
+- Fonctionne pour les parcours chargés et les activités enregistrées.
+- Suppression des cartes hors ligne fiabilisée et vérifiée après effacement.
+- Si IndexedDB conserve anormalement une entrée, Rando Radar réécrit le stockage sans la carte supprimée.
+- GPS natif, boussole, centrage, radar et autres fonctions de la 1.10.26 conservés.
