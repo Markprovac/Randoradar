@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VERSION_NAME = '1.10.27';
-const VERSION_CODE = 11027;
+const VERSION_NAME = '1.10.28';
+const VERSION_CODE = 11028;
 const PACKAGE_NAME = 'com.randoradar.app';
 const javaDir = `android/app/src/main/java/${PACKAGE_NAME.replaceAll('.', '/')}`;
 
@@ -88,7 +88,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -348,7 +347,7 @@ import android.content.pm.PackageManager;
 import android.os.PowerManager;
 import android.content.Context;
 import androidx.core.content.ContextCompat;
-import com.getcapacitor.ActivityResult;
+import androidx.activity.result.ActivityResult;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
